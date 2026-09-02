@@ -1,0 +1,495 @@
+:root {
+  color-scheme: light;
+  --bg: #fff8ea;
+  --bg-accent: #fff1cf;
+  --card: #ffffff;
+  --text: #243047;
+  --muted: #5d6b82;
+  --primary: #ff8a00;
+  --primary-strong: #e66f00;
+  --border: rgba(36, 48, 71, 0.12);
+  --shadow: 0 18px 40px rgba(36, 48, 71, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.52) 42%, transparent 70%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-accent) 100%);
+  color: var(--text);
+}
+
+.app-shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 40px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-strong);
+}
+
+h1,
+h2,
+p,
+ul {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 12px;
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.05;
+}
+
+h2 {
+  margin-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+.lead {
+  margin-bottom: 16px;
+  max-width: 58ch;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 138, 0, 0.12);
+  color: var(--primary-strong);
+  font-weight: 700;
+}
+
+.status::before {
+  content: "●";
+  font-size: 0.8rem;
+}
+
+.status--error {
+  background: rgba(229, 74, 74, 0.12);
+  color: #a62b2b;
+}
+
+.status--error::before {
+  content: "!";
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.grid > .card {
+  padding: 22px;
+  min-height: 220px;
+}
+
+.feature-list {
+  padding-left: 1.2rem;
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.section-heading,
+.action-row,
+.word-list-item,
+.practice-header,
+.practice-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-heading,
+.practice-header,
+.practice-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.action-row {
+  flex-wrap: wrap;
+}
+
+.action-row--spaced {
+  margin-top: 16px;
+}
+
+.word-list-items {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.word-list-item {
+  justify-content: space-between;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--muted);
+}
+
+.word-list-item strong {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+  background: var(--primary-strong);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(36, 48, 71, 0.45);
+  outline-offset: 2px;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+label {
+  display: block;
+  margin: 16px 0 6px;
+  font-weight: 700;
+}
+
+form > button {
+  margin-top: 16px;
+}
+
+.link-button {
+  padding: 0;
+  min-height: auto;
+  background: transparent;
+  color: var(--primary-strong);
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  background: transparent;
+  color: var(--text);
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff6e7;
+  border: 1px solid rgba(255, 138, 0, 0.18);
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+
+.pill--active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  border-radius: 18px;
+  border: 1px dashed rgba(36, 48, 71, 0.18);
+  background: rgba(255, 248, 234, 0.6);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.practice-screen,
+.practice-setup {
+  padding: 22px;
+}
+
+.practice-screen {
+  display: grid;
+  gap: 16px;
+}
+
+.practice-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.practice-progress {
+  display: grid;
+  gap: 10px;
+  min-width: min(100%, 320px);
+}
+
+.practice-progress__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.practice-progress__label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.practice-progress__track {
+  overflow: hidden;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.1);
+}
+
+.practice-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffb347 0%, var(--primary) 100%);
+  transition: width 180ms ease-out;
+}
+
+.setup-label,
+.assistive-text {
+  color: var(--muted);
+}
+
+.assistive-text {
+  font-size: 0.95rem;
+}
+
+.feedback {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(255, 248, 234, 0.7);
+}
+
+.feedback--correct {
+  border-color: rgba(57, 148, 76, 0.25);
+  background: rgba(57, 148, 76, 0.1);
+}
+
+.feedback--incorrect {
+  border-color: rgba(229, 74, 74, 0.25);
+  background: rgba(229, 74, 74, 0.08);
+}
+
+.practice-screen label {
+  margin-top: 0;
+}
+
+.practice-prompt {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.practice-screen input {
+  font-size: 1.1rem;
+}
+
+.practice-screen button {
+  min-width: 120px;
+}
+
+.practice-screen .link-button,
+.practice-setup .link-button {
+  min-width: 0;
+}
+
+.practice-setup .lead,
+.practice-screen .lead {
+  margin-bottom: 0;
+}
+
+.practice-setup .pill-row {
+  margin-top: 8px;
+}
+
+.practice-setup .pill {
+  min-width: 72px;
+}
+
+.mistakes-screen {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.mistake-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mistake-item {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 248, 234, 0.55);
+}
+
+.mistake-item strong {
+  font-size: 1.05rem;
+}
+
+.mistake-item span {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.mistakes-empty {
+  display: grid;
+  gap: 12px;
+  place-items: center;
+  padding: 24px 20px;
+  border: 1px dashed rgba(36, 48, 71, 0.18);
+  border-radius: 20px;
+  background: rgba(255, 248, 234, 0.6);
+  text-align: center;
+}
+
+.mistakes-empty__eyebrow {
+  margin: 0;
+  color: var(--primary-strong);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mistakes-empty h3 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.mistakes-empty__text {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 4px 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 840px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell {
+    width: min(100% - 20px, 960px);
+    padding-top: 20px;
+  }
+
+  .hero,
+  .grid > .card,
+  .practice-screen,
+  .practice-setup {
+    padding: 20px;
+  }
+
+  .word-list-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .practice-header,
+  .practice-actions,
+  .section-heading {
+    align-items: stretch;
+  }
+
+  .practice-progress__label-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .practice-screen button,
+  .practice-setup button {
+    width: 100%;
+  }
+}
