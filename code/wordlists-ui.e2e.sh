@@ -14,7 +14,7 @@ agent-browser --session "$SESSION" wait --load domcontentloaded
 
 body="$(agent-browser --session "$SESSION" get text body)"
 printf '%s' "$body" | grep -F 'Animals'
-printf '%s' "$body" | grep -F '3 个单词'
+printf '%s' "$body" | grep -F '3 words'
 agent-browser --session "$SESSION" get count '.practice-list' | grep -x '1'
 agent-browser --session "$SESSION" get count '.practice-list[data-list-id="animals"]' | grep -x '1'
 agent-browser --session "$SESSION" get count '#mistakes' | grep -x '1'

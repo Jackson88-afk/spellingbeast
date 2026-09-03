@@ -22,7 +22,7 @@ agent-browser --session "$SESSION" wait 200
 agent-browser --session "$SESSION" fill '#answer' 'ant'
 agent-browser --session "$SESSION" click '#submit-answer'
 agent-browser --session "$SESSION" wait 200
-agent-browser --session "$SESSION" get text '#feedback' | grep -F '太棒了'
+agent-browser --session "$SESSION" get text '#feedback' | grep -F 'Great job! Spelling correct.'
 agent-browser --session "$SESSION" click '#next-word'
 agent-browser --session "$SESSION" wait 200
 
@@ -31,6 +31,6 @@ agent-browser --session "$SESSION" click '#submit-answer'
 agent-browser --session "$SESSION" wait 200
 agent-browser --session "$SESSION" click '#next-word'
 agent-browser --session "$SESSION" wait 200
-agent-browser --session "$SESSION" get text body | grep -F '练习完成'
+agent-browser --session "$SESSION" get text body | grep -F 'Practice Complete'
 
 echo 'practice UI E2E test passed'

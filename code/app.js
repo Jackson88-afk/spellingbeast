@@ -2,6 +2,14 @@ function initApp() {
   window.__appInitRan = true;
   const app = document.getElementById('app');
   const persistence = SpellingBeastPersistence.createPersistence();
+  const localization = typeof SpellingBeastLocalization !== 'undefined'
+    ? SpellingBeastLocalization.createLocalization('en', { storage: window.localStorage })
+    : {
+      getLocale: () => 'en',
+      translate: (key) => key,
+      setLocale: () => 'en',
+      onChange: () => () => {},
+    };
   let view = 'home';
   let message = '';
   let selectedListId = null;
@@ -11,12 +19,55 @@ function initApp() {
   let practiceMode = 'normal';
   let audioMessage = '';
 
+  function t(key, values) {
+    return localization.translate(key, values);
+  }
+
+  function applyLocalization() {
+    if (document.documentElement) {
+      document.documentElement.lang = localization.getLocale();
+    }
+    const canQuery = typeof document.querySelector === 'function';
+    const eyebrow = canQuery ? document.querySelector('.hero .eyebrow') : null;
+    const heroTitle = canQuery ? document.querySelector('.hero h1') : null;
+    const heroLead = canQuery ? document.querySelector('.hero .lead') : null;
+    const footerBrand = canQuery ? document.querySelector('.footer span') : null;
+    const footerTagline = typeof document.getElementById === 'function'
+      ? document.getElementById('footer-tagline')
+      : null;
+    const languageButton = typeof document.getElementById === 'function'
+      ? document.getElementById('language-toggle')
+      : null;
+    if (eyebrow) eyebrow.textContent = t('hero.brand');
+    if (heroTitle) heroTitle.textContent = t('hero.title');
+    if (heroLead) heroLead.textContent = t('hero.lead');
+    if (footerBrand) footerBrand.textContent = t('footer.brand');
+    if (footerTagline) footerTagline.textContent = t('footer.tagline');
+    if (languageButton) {
+      languageButton.textContent = t('language.button');
+      languageButton.setAttribute('aria-label', t('language.ariaLabel'));
+    }
+  }
+
+  const languageButton = typeof document.getElementById === 'function'
+    ? document.getElementById('language-toggle')
+    : null;
+  if (languageButton) {
+    languageButton.addEventListener('click', () => {
+      localization.setLocale(localization.getLocale() === 'en' ? 'zh' : 'en');
+    });
+  }
+  localization.onChange(() => {
+    applyLocalization();
+    render();
+  });
+
   function getAudioFailureMessage(error) {
     if (typeof SpellingBeastAudio !== 'undefined' && typeof SpellingBeastAudio.describeSpeechSynthesisFailure === 'function') {
-      return SpellingBeastAudio.describeSpeechSynthesisFailure(error);
+      return SpellingBeastAudio.describeSpeechSynthesisFailure(error, localization.getLocale());
     }
 
-    return error && error.message ? error.message : '无法播放这个单词，请再试一次。';
+    return error && error.message ? error.message : t('audio.failure');
   }
 
   function render() {
@@ -28,7 +79,7 @@ function initApp() {
       : {
         count: activeMistakes.length,
         words: activeMistakes,
-        emptyState: '当前没有需要额外练习的单词。',
+        emptyState: t('mistakes.emptyText'),
       };
 
     if (view === 'import') {
@@ -58,20 +109,20 @@ function initApp() {
     app.innerHTML = `
       <section class="card">
         <div class="section-heading">
-          <h2>我的单词表</h2>
+          <h2>${t('home.title')}</h2>
           <div class="action-row">
-            <button type="button" id="mistakes">错题本 (${mistakeSummary.count})</button>
-            <button type="button" id="add-list">添加单词表</button>
+            <button type="button" id="mistakes">${t('home.mistakesButton', { count: mistakeSummary.count })}</button>
+            <button type="button" id="add-list">${t('home.addListButton')}</button>
           </div>
         </div>
         ${lists.length ? `<ul class="word-list-items">${lists.map((list) => `
           <li class="word-list-item">
             <div>
               <strong>${escapeHtml(list.name)}</strong><br />
-              <span>${list.words.length} 个单词</span>
+              <span>${t('home.wordCount', { count: list.words.length })}</span>
             </div>
-            <button type="button" class="practice-list" data-list-id="${escapeHtml(list.id)}">开始练习</button>
-          </li>`).join('')}</ul>` : '<p class="empty-state">还没有单词表。先添加一个吧！</p>'}
+            <button type="button" class="practice-list" data-list-id="${escapeHtml(list.id)}">${t('setup.startButton')}</button>
+          </li>`).join('')}</ul>` : `<p class="empty-state">${t('home.emptyState')}</p>`}
         <p class="status" id="home-message"${message ? '' : ' hidden'} role="status">${escapeHtml(message)}</p>
       </section>`;
 
@@ -92,29 +143,29 @@ function initApp() {
     app.innerHTML = `
       <section class="card mistakes-screen">
         <div class="section-heading">
-          <button type="button" class="link-button" id="back-home">← 返回</button>
-          <p class="status" role="status">当前有 ${mistakeSummary.count} 个错题</p>
+          <button type="button" class="link-button" id="back-home">${t('mistakes.backButton')}</button>
+          <p class="status" role="status">${t('mistakes.status', { count: mistakeSummary.count })}</p>
         </div>
-        <h2>错题本</h2>
-        <p class="lead">把还没拼对的单词集中练习。</p>
+        <h2>${t('mistakes.title')}</h2>
+        <p class="lead">${t('mistakes.lead')}</p>
         ${hasMistakes ? `
           <ul class="mistake-list">
             ${mistakeSummary.words.map((mistake) => `
               <li class="mistake-item">
                 <strong>${escapeHtml(mistake.word)}</strong>
-                ${mistake.wordListName ? `<span>来自 ${escapeHtml(mistake.wordListName)}</span>` : ''}
+                ${mistake.wordListName ? `<span>${t('mistakes.fromList')} ${escapeHtml(mistake.wordListName)}</span>` : ''}
               </li>`).join('')}
           </ul>
           <div class="action-row action-row--spaced">
-            <button type="button" id="practice-mistakes">开始练习错题</button>
+            <button type="button" id="practice-mistakes">${t('mistakes.practiceButton')}</button>
           </div>
           ${message ? `<p class="status" id="mistakes-message" role="status">${escapeHtml(message)}</p>` : ''}
         ` : `
           <div class="mistakes-empty" aria-live="polite">
-            <p class="mistakes-empty__eyebrow">All Caught Up</p>
-            <h3>做得很棒！</h3>
-            <p class="mistakes-empty__text">${escapeHtml(mistakeSummary.emptyState)}</p>
-            <p class="mistakes-empty__text">可以回到首页，继续练习别的单词表。</p>
+            <p class="mistakes-empty__eyebrow">${t('mistakes.emptyEyebrow')}</p>
+            <h3>${t('mistakes.emptyTitle')}</h3>
+            <p class="mistakes-empty__text">${t('mistakes.emptyText')}</p>
+            <p class="mistakes-empty__text">${t('mistakes.emptyHint')}</p>
           </div>
         `}
       </section>`;
@@ -135,17 +186,17 @@ function initApp() {
   function renderImport() {
     app.innerHTML = `
       <section class="card">
-        <button type="button" class="link-button" id="back-home">← 返回</button>
-        <h2>添加单词表</h2>
+        <button type="button" class="link-button" id="back-home">${t('import.backButton')}</button>
+        <h2>${t('import.title')}</h2>
         <form id="import-form">
-          <label for="list-name">单词表名称</label>
-          <input id="list-name" name="name" required maxlength="80" placeholder="例如：本周单词" />
-          <label for="words">每行写一个单词</label>
-          <textarea id="words" name="words" rows="10" placeholder="apple&#10;beautiful&#10;calendar"></textarea>
-          <label for="word-file">或上传 TXT / CSV</label>
+          <label for="list-name">${t('import.nameLabel')}</label>
+          <input id="list-name" name="name" required maxlength="80" placeholder="${t('import.namePlaceholder')}" />
+          <label for="words">${t('import.wordsLabel')}</label>
+          <textarea id="words" name="words" rows="10" placeholder="${t('import.wordsPlaceholder')}"></textarea>
+          <label for="word-file">${t('import.fileLabel')}</label>
           <input id="word-file" name="file" type="file" accept=".txt,.csv,text/plain,text/csv" />
           <p class="status" id="import-message" role="alert"></p>
-          <button type="submit">保存单词表</button>
+          <button type="submit">${t('import.saveButton')}</button>
         </form>
       </section>`;
 
@@ -168,18 +219,18 @@ function initApp() {
 
     app.innerHTML = `
       <section class="card practice-setup">
-        <button type="button" class="link-button" id="back-home">← 返回</button>
-        <h2>开始练习</h2>
-        <p class="lead">${escapeHtml(list.name)} · ${list.words.length} 个单词</p>
-        <p class="setup-label">选择本次练习数量</p>
-        <div class="pill-row" role="group" aria-label="选择练习数量">
+        <button type="button" class="link-button" id="back-home">${t('setup.backButton')}</button>
+        <h2>${t('setup.title')}</h2>
+        <p class="lead">${escapeHtml(list.name)} · ${t('home.wordCount', { count: list.words.length })}</p>
+        <p class="setup-label">${t('setup.label')}</p>
+        <div class="pill-row" role="group" aria-label="${t('setup.groupLabel')}">
           ${sizes.map((size) => `
-            <button type="button" class="pill ${selectedSessionSize === size ? 'pill--active' : ''}" data-size="${escapeHtml(String(size))}">${escapeHtml(String(size))}</button>
+            <button type="button" class="pill ${selectedSessionSize === size ? 'pill--active' : ''}" data-size="${escapeHtml(String(size))}">${size === 'All' ? t('common.all') : escapeHtml(String(size))}</button>
           `).join('')}
         </div>
         <p class="status" id="setup-message"${message ? '' : ' hidden'} role="status">${escapeHtml(message)}</p>
         <div class="action-row action-row--spaced">
-          <button type="button" id="start-practice">开始练习</button>
+          <button type="button" id="start-practice">${t('setup.startButton')}</button>
         </div>
       </section>`;
 
@@ -215,29 +266,29 @@ function initApp() {
 
       app.innerHTML = `
         <section class="card practice-screen">
-          <h2>练习完成</h2>
-          <p class="lead">今天这组单词已经练完了。下面是这次练习的结果。</p>
-          <div class="summary-stats" aria-label="本次练习结果">
-            <p>正确数量：${summary.correctCount}</p>
-            <p>总答题数：${summary.totalAttempted}</p>
-            <p>需要继续练习的数量：${summary.needsMorePracticeCount}</p>
+          <h2>${t('practice.completeTitle')}</h2>
+          <p class="lead">${t('practice.completeLead')}</p>
+          <div class="summary-stats" aria-label="${t('practice.summaryTitle')}">
+            <p>${t('practice.correctCount', { count: summary.correctCount })}</p>
+            <p>${t('practice.totalAttempted', { count: summary.totalAttempted })}</p>
+            <p>${t('practice.needsMorePracticeCount', { count: summary.needsMorePracticeCount })}</p>
           </div>
           <div class="summary-missed">
-            <h3>答错单词</h3>
+            <h3>${t('practice.missedTitle')}</h3>
             ${summary.missedWords.length ? `
               <ul class="summary-missed__list">
                 ${summary.missedWords.map((item) => `
                   <li class="summary-missed__item">
-                    <p>单词：<strong>${escapeHtml(item.word)}</strong></p>
-                    <p>正确拼写：${escapeHtml(item.correctSpelling)}</p>
+                    <p>${t('practice.missedWord')} <strong>${escapeHtml(item.word)}</strong></p>
+                    <p>${t('practice.correctSpelling')} ${escapeHtml(item.correctSpelling)}</p>
                   </li>`).join('')}
               </ul>
-            ` : '<p class="empty-state">这次没有答错单词。</p>'}
+            ` : `<p class="empty-state">${t('practice.noMissed')}</p>`}
           </div>
           <div class="action-row action-row--spaced">
-            ${showPracticeMistakesAction ? '<button type="button" id="practice-mistakes-summary">练习错题</button>' : ''}
-            ${showMistakesScreenAction ? '<button type="button" id="summary-mistakes">错题本</button>' : ''}
-            <button type="button" id="practice-home">回到首页</button>
+            ${showPracticeMistakesAction ? `<button type="button" id="practice-mistakes-summary">${t('practice.practiceMistakesButton')}</button>` : ''}
+            ${showMistakesScreenAction ? `<button type="button" id="summary-mistakes">${t('practice.mistakesButton')}</button>` : ''}
+            <button type="button" id="practice-home">${t('practice.homeButton')}</button>
           </div>
         </section>`;
       if (showPracticeMistakesAction) {
@@ -268,35 +319,35 @@ function initApp() {
     const feedback = state.feedback || null;
     const isCorrect = feedback ? feedback.isCorrect : false;
     const feedbackClass = feedback ? (isCorrect ? 'feedback feedback--correct' : 'feedback feedback--incorrect') : 'feedback';
-    const nextLabel = state.currentIndex + 1 >= state.totalWords ? '完成' : '下一个';
+    const nextLabel = state.currentIndex + 1 >= state.totalWords ? t('practice.doneButton') : t('practice.nextButton');
 
     app.innerHTML = `
       <section class="card practice-screen">
         <div class="practice-header">
-          <button type="button" class="link-button" id="practice-back">← 返回</button>
-          <div class="practice-progress" aria-label="练习进度">
+          <button type="button" class="link-button" id="practice-back">${t('setup.backButton')}</button>
+          <div class="practice-progress" aria-label="${t('practice.progressLabel')}">
             <div class="practice-progress__label-row">
-              <p class="practice-progress__label">进度</p>
-              <p class="status" aria-live="polite">第 ${state.currentPosition} / ${state.totalWords} 题</p>
+            <p class="practice-progress__label">${t('practice.progressLabel')}</p>
+            <p class="status" aria-live="polite">${t('practice.questionStatus', { current: state.currentPosition, total: state.totalWords })}</p>
             </div>
             <div class="practice-progress__track" aria-hidden="true">
               <div class="practice-progress__fill" style="width: ${progressPercent}%"></div>
             </div>
           </div>
         </div>
-        <h2>${escapeHtml(practiceList.name)}</h2>
-        <p class="practice-prompt">听一听，再拼写。</p>
+        <h2>${escapeHtml(practiceMode === 'mistakes' ? t('mistakes.practiceSessionName') : practiceList.name)}</h2>
+        <p class="practice-prompt">${t('practice.prompt')}</p>
         <div class="practice-panel">
           <div class="practice-actions">
-            <button type="button" id="play-word">播放单词</button>
-            <span class="assistive-text">请先点播放，再拼写。</span>
+            <button type="button" id="play-word">${t('practice.playButton')}</button>
+            <span class="assistive-text">${t('practice.playHint')}</span>
           </div>
           ${audioMessage ? `<p class="status status--error" role="alert">${escapeHtml(audioMessage)}</p>` : ''}
           <form id="practice-form">
-            <label for="answer">请输入拼写</label>
-            <input id="answer" name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在这里输入" value="${escapeHtml(answerValue)}" ${canEditAnswer ? '' : 'disabled'} />
+            <label for="answer">${t('practice.answerLabel')}</label>
+            <input id="answer" name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('practice.answerPlaceholder')}" value="${escapeHtml(answerValue)}" ${canEditAnswer ? '' : 'disabled'} />
             <div class="action-row action-row--spaced">
-              <button type="submit" id="submit-answer"${canEditAnswer ? '' : ' hidden'}>提交</button>
+              <button type="submit" id="submit-answer"${canEditAnswer ? '' : ' hidden'}>${t('practice.submitButton')}</button>
               <button type="button" id="next-word"${canShowFeedback ? '' : ' hidden'}>${nextLabel}</button>
             </div>
           </form>
@@ -369,13 +420,13 @@ function initApp() {
     }
 
     if (feedback.isCorrect) {
-      return '<p>太棒了！拼写正确。</p>';
+      return `<p>${t('practice.correctFeedback')}</p>`;
     }
 
     return `
-      <p>再看一次。</p>
-      <p>你的答案：${escapeHtml(feedback.submittedAnswer)}</p>
-      <p>正确拼写：${escapeHtml(feedback.correctAnswer)}</p>`;
+      <p>${t('practice.tryAgain')}</p>
+      <p>${t('practice.yourAnswer')} ${escapeHtml(feedback.submittedAnswer)}</p>
+      <p>${t('practice.correctAnswer')} ${escapeHtml(feedback.correctAnswer)}</p>`;
   }
 
   function showHomeMessage(text) {
@@ -454,7 +505,10 @@ function initApp() {
     const file = form.elements.file.files[0];
     const saveWords = (result) => {
       if (!result.valid) {
-        messageNode.textContent = result.error;
+        const errorKey = result.error === 'Add at least one word, with one word on each line.'
+          ? 'import.emptyWords'
+          : 'import.unsupportedFileType';
+        messageNode.textContent = t(errorKey);
         return;
       }
       persistence.saveWordList(SpellingBeastWordList.createWordList({
@@ -463,7 +517,7 @@ function initApp() {
         words: result.words,
       }));
       view = 'home';
-      message = '单词表已保存。';
+      message = t('home.savedMessage');
       render();
     };
 
@@ -480,7 +534,7 @@ function initApp() {
 
     const reader = new FileReader();
     reader.onerror = () => {
-      messageNode.textContent = '无法读取这个文件。请再试一次。';
+      messageNode.textContent = t('import.readError');
     };
     reader.onload = () => saveWords(SpellingBeastImport.parseImportInput(type, reader.result));
     reader.readAsText(file);
@@ -492,6 +546,7 @@ function initApp() {
     return element.innerHTML;
   }
 
+  applyLocalization();
   render();
 }
 

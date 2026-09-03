@@ -1,9 +1,9 @@
 Spelling Bee - Decision Log
 Specification: spec_spelling.md
 
-Specification Version: 1.0
+Specification Version: 1.1
 
-Status: Locked for v1
+Status: Locked for v1.1
 
 ## 1. Purpose
 
@@ -275,6 +275,30 @@ Status: Locked
 Decision:
 
 No backend or database service is required for v1.
+
+Status: Locked
+
+### DEC-020 - Interface Language
+
+Decision:
+
+The default interface language is English.
+
+A visible language toggle switches all interface text between English and Chinese.
+
+The selected language is persisted locally in the browser. Word-list content is not translated.
+
+Status: Locked
+
+### DEC-021 - American English Pronunciation
+
+Decision:
+
+Speech playback requests `en-US` and prefers an available American English browser voice.
+
+Because voice availability is controlled by the browser and operating system, an American voice cannot be guaranteed on every device. If unavailable, an English fallback voice may be used and the existing failure state remains required.
+
+No external audio service is introduced.
 
 Status: Locked
 

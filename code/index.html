@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -17,6 +17,7 @@
     <script defer src="./session.js"></script>
     <script defer src="./practice.js"></script>
     <script defer src="./audio.js"></script>
+    <script defer src="./localization.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body>
@@ -25,13 +26,14 @@
         <p class="eyebrow">SpellingBeast</p>
         <h1>拼写练习</h1>
         <p class="lead">添加自己的单词，然后开始练习。</p>
+        <button type="button" id="language-toggle">语言：中文</button>
       </header>
 
       <main id="app" aria-live="polite"></main>
 
       <footer class="footer">
         <span>SpellingBeast</span>
-        <span>Local-first static scaffold</span>
+        <span id="footer-tagline">Local-first static scaffold</span>
       </footer>
     </div>
   </body>

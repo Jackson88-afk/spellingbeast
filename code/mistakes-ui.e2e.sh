@@ -23,7 +23,7 @@ agent-browser --session "$SESSION" click '#submit-answer'
 agent-browser --session "$SESSION" wait 200
 agent-browser --session "$SESSION" click '#practice-back'
 agent-browser --session "$SESSION" wait 200
-agent-browser --session "$SESSION" get text '#mistakes' | grep -F '错题本 (1)'
+agent-browser --session "$SESSION" get text '#mistakes' | grep -F 'Mistakes (1)'
 
 agent-browser --session "$SESSION" click '#mistakes'
 agent-browser --session "$SESSION" wait 200
@@ -34,11 +34,11 @@ agent-browser --session "$SESSION" click '#submit-answer'
 agent-browser --session "$SESSION" wait 200
 agent-browser --session "$SESSION" click '#next-word'
 agent-browser --session "$SESSION" wait 200
-agent-browser --session "$SESSION" get text body | grep -F '练习完成'
+agent-browser --session "$SESSION" get text body | grep -F 'Practice Complete'
 agent-browser --session "$SESSION" eval "document.querySelector('#practice-home').click(); 'home'"
 agent-browser --session "$SESSION" wait 200
 agent-browser --session "$SESSION" eval "document.querySelector('#mistakes').click(); 'mistakes'"
 agent-browser --session "$SESSION" wait 200
-agent-browser --session "$SESSION" get text body | grep -F 'All Caught Up'
+agent-browser --session "$SESSION" get text body | grep -F 'ALL CAUGHT UP'
 
 echo 'mistakes UI E2E test passed'

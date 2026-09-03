@@ -1,5 +1,5 @@
 Spelling Bee - Product Specification
-Version: 1.0
+Version: 1.1
 
 Status: Approved for Development
 
@@ -994,7 +994,27 @@ These are future considerations only.
 
 They must not be implemented as part of v1 without explicit scope approval.
 
-## 21. Developer Governance
+## 21. v1.1 Localization and Pronunciation
+
+### 21.1 Language
+
+The default interface language is English.
+
+A visible language button allows the user to switch the complete interface to Chinese and back to English.
+
+The selected interface language is persisted in browser-local storage.
+
+Word-list content is not translated.
+
+### 21.2 American English Pronunciation
+
+When the user presses Play Word, the application requests American English pronunciation using the browser Web Speech API and `en-US`.
+
+When an `en-US` voice is available, it is preferred. If the browser does not provide an American English voice, the application may use the browser's available English fallback voice and must preserve the existing visible failure handling.
+
+No external audio service is required.
+
+## 22. Developer Governance
 
 This document is the product source of truth.
 

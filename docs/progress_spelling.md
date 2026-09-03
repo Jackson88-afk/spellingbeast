@@ -2,11 +2,11 @@
 
 Specification: spec_spelling.md
 
-Specification Version: 1.0
+Specification Version: 1.1
 
 Status: In Development
 
-Current Phase: Phase 6 - UX and Quality (Not started)
+Current Phase: Phase 9 - American English Pronunciation (Completed)
 
 ## 1. Product Documentation Status
 
@@ -140,6 +140,28 @@ The following documents have been created:
     
 - TASK-072 - Progress update: Completed
     
+### Phase 8 - Localization
+
+- TASK-080 - Localization specification update: Completed
+    
+- TASK-081 - Localization model: Completed
+    
+- TASK-082 - Language toggle: Completed
+    
+- TASK-083 - Localization tests and acceptance: Completed
+    
+### Phase 9 - American English Pronunciation
+
+- TASK-090 - en-US Speech Request: Completed
+    
+- TASK-091 - Pronunciation tests: Completed
+    
+- TASK-092 - Pronunciation browser acceptance: Completed
+    
+### Phase 10 - UI Redesign (Deferred)
+
+Deferred until a suitable UI skill and design direction are selected.
+    
 
 ## 3. Current Blockers
 
@@ -147,11 +169,11 @@ No current blockers.
 
 ## 4. Current Developer Task
 
-无未完成开发任务。
+No current developer task. Phase 10 UI redesign remains deferred.
 
 ## 5. Expected Next Developer Actions
 
-SpellingBeast v1 已完成最终验收，等待用户审查与 commit 批准。
+Wait for UI skill and design direction before starting Phase 10.
 
 ## 6. Product Scope Guardrail
 

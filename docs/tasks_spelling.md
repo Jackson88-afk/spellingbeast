@@ -756,6 +756,42 @@ Update progress_spelling.md with:
 - Important implementation notes
     
 
+# Phase 8 - Localization
+
+## TASK-080 - Localization Specification Update
+
+Update the approved specification and decision log for English default, Chinese toggle, local language preference, and untranslated word-list content.
+
+## TASK-081 - Localization Model
+
+Implement a small UI translation dictionary and locale state for all user-facing interface text.
+
+## TASK-082 - Language Toggle
+
+Add a visible language button that switches the complete interface between English and Chinese and persists the preference locally.
+
+## TASK-083 - Localization Tests and Acceptance
+
+Test both locales, default English behavior, persistence after refresh, complete UI coverage, and browser interaction.
+
+# Phase 9 - American English Pronunciation
+
+## TASK-090 - en-US Speech Request
+
+Request `en-US` pronunciation and prefer an available `en-US` browser voice while preserving explicit user-triggered playback.
+
+## TASK-091 - Pronunciation Tests
+
+Test the `en-US` utterance/voice preference and existing unsupported, unavailable, and synthesis-error handling.
+
+## TASK-092 - Pronunciation Browser Acceptance
+
+Verify the browser receives the intended `en-US` speech configuration and the visible failure state remains usable.
+
+# Phase 10 - UI Redesign (Deferred)
+
+UI redesign is intentionally deferred until a suitable UI/design skill and design direction are selected.
+
 # Developer Working Rules
 
 1. Read spec_spelling.md before implementation.
