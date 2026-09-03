@@ -364,9 +364,21 @@ async function testPlayWordFailureIsVisibleToTheChild() {
   assert.equal(document.getElementById('app').innerHTML.includes(failureMessage), true);
 }
 
+async function testPracticeFocusReturnsToAnswerAfterEnteringPractice() {
+  const { document } = loadAppSandbox();
+
+  await document.querySelectorAll('.practice-list')[0].click();
+  await document.querySelectorAll('[data-size]').find((button) => button.dataset.size === 'All').click();
+  await document.getElementById('start-practice').click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(document.getElementById('answer').focused, true);
+}
+
 async function run() {
   await testPlayWordRequiresExplicitUserClick();
   await testPlayWordFailureIsVisibleToTheChild();
+  await testPracticeFocusReturnsToAnswerAfterEnteringPractice();
   console.log('app audio tests passed');
 }
 

@@ -158,22 +158,40 @@ The following documents have been created:
     
 - TASK-092 - Pronunciation browser acceptance: Completed
     
-### Phase 10 - UI Redesign (Deferred)
+### Phase 10 - UI Redesign
 
-Deferred until a suitable UI skill and design direction are selected.
+- TASK-100 - Visual design contract: Completed
     
-
+- TASK-101 - Shared visual foundation: Completed
+    
+- TASK-102 - Home / Word Lists UI: Completed
+    
+- TASK-103 - Create / Import Word List UI: Completed
+    
+- TASK-104 - Practice Setup UI: Completed
+    
+- TASK-105 - Active Practice UI: Completed
+    
+- TASK-106 - Session Summary UI: Completed
+    
+- TASK-107 - Mistakes UI: Completed
+    
+- TASK-108 - Accessibility and responsive hardening: Completed
+    
+- TASK-109 - Full Regression and Visual Acceptance: In Progress
+    
 ## 3. Current Blockers
 
 No current blockers.
 
 ## 4. Current Developer Task
 
-No current developer task. Phase 10 UI redesign remains deferred.
+TASK-103 - Create / Import Word List UI.
 
 ## 5. Expected Next Developer Actions
 
-Wait for UI skill and design direction before starting Phase 10.
+Complete TASK-103 without changing import behavior, then run direct tests and coordinator browser acceptance before starting TASK-104.
+
 
 ## 6. Product Scope Guardrail
 

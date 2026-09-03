@@ -788,9 +788,49 @@ Test the `en-US` utterance/voice preference and existing unsupported, unavailabl
 
 Verify the browser receives the intended `en-US` speech configuration and the visible failure state remains usable.
 
-# Phase 10 - UI Redesign (Deferred)
+# Phase 10 - UI Redesign
 
-UI redesign is intentionally deferred until a suitable UI/design skill and design direction are selected.
+UI redesign follows `DESIGN.md` and the approved direction: simple modern rounded surfaces, centered single-column compositions, minimal scrolling, clear child-friendly hierarchy, and no change to product behavior.
+
+## TASK-100 - Visual Design Contract
+
+Create and validate the project-level `DESIGN.md` with approved colors, typography, spacing, radii, widths, button hierarchy, responsive rules, accessibility rules, and explicit v1 exclusions.
+
+## TASK-101 - Shared Visual Foundation
+
+Apply the approved design tokens and shared layout, typography, controls, focus, status, and responsive styles without changing selectors or product behavior.
+
+## TASK-102 - Home / Word Lists UI
+
+Redesign only the home and Word Lists presentation: centered composition, clear Add Word List primary action, readable saved-list rows, secondary Mistakes entry point, and concise empty state.
+
+## TASK-103 - Create / Import Word List UI
+
+Redesign only the create/import screen as a focused single-page form with clear grouping, validation placement, and Save/Cancel hierarchy.
+
+## TASK-104 - Practice Setup UI
+
+Redesign only list and session-size selection, making the selected size and Start action obvious and accessible without adding options.
+
+## TASK-105 - Active Practice UI
+
+Redesign only the active practice presentation around the sequence Progress -> Play -> Type -> Submit -> Feedback -> Next while preserving the state machine.
+
+## TASK-106 - Session Summary UI
+
+Redesign only the completion summary and missed-word presentation, including a clear result hierarchy and Practice Mistakes action when applicable.
+
+## TASK-107 - Mistakes UI
+
+Redesign only the Mistakes screen, active mistake list, empty state, and All Caught Up state.
+
+## TASK-108 - Accessibility and Responsive Hardening
+
+Verify and fix cross-page target sizes, focus order, selected semantics, focus after view changes, contrast, reduced motion, and overflow.
+
+## TASK-109 - Full Regression and Visual Acceptance
+
+Run all tests and coordinator browser checks against the product specification across desktop, mobile, keyboard, localization, audio, empty, error, and completion states.
 
 # Developer Working Rules
 

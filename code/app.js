@@ -18,9 +18,56 @@ function initApp() {
   let practiceList = null;
   let practiceMode = 'normal';
   let audioMessage = '';
+  let pendingFocusSelector = '';
 
   function t(key, values) {
     return localization.translate(key, values);
+  }
+
+  function queueFocus(selector) {
+    pendingFocusSelector = selector;
+  }
+
+  function focusPendingTarget() {
+    if (!pendingFocusSelector) {
+      return;
+    }
+
+    const canQuery = typeof document.querySelector === 'function';
+    const target = canQuery ? document.querySelector(pendingFocusSelector) : null;
+    pendingFocusSelector = '';
+    if (target && typeof target.focus === 'function') {
+      try {
+        target.focus({ preventScroll: true });
+      } catch (_error) {
+        target.focus();
+      }
+    }
+  }
+
+  function focusPracticeAnswer() {
+    const answerInput = typeof document.getElementById === 'function'
+      ? document.getElementById('answer')
+      : null;
+
+    if (!answerInput || answerInput.disabled || typeof answerInput.focus !== 'function') {
+      return;
+    }
+
+    try {
+      answerInput.focus({ preventScroll: true });
+    } catch (_error) {
+      answerInput.focus();
+    }
+  }
+
+  function queuePracticeAnswerFocus() {
+    if (typeof window.setTimeout === 'function') {
+      window.setTimeout(focusPracticeAnswer, 0);
+      return;
+    }
+
+    focusPracticeAnswer();
   }
 
   function applyLocalization() {
@@ -103,30 +150,34 @@ function initApp() {
     }
 
     renderHome(lists, mistakeSummary);
+    focusPendingTarget();
   }
 
   function renderHome(lists, mistakeSummary) {
     app.innerHTML = `
-      <section class="card">
-        <div class="section-heading">
+      <section class="card home-screen">
+        <div class="section-heading home-heading">
           <h2>${t('home.title')}</h2>
-          <div class="action-row">
-            <button type="button" id="mistakes">${t('home.mistakesButton', { count: mistakeSummary.count })}</button>
+          <div class="action-row home-actions">
             <button type="button" id="add-list">${t('home.addListButton')}</button>
+            <button type="button" id="mistakes">${t('home.mistakesButton', { count: mistakeSummary.count })}</button>
           </div>
         </div>
-        ${lists.length ? `<ul class="word-list-items">${lists.map((list) => `
-          <li class="word-list-item">
-            <div>
-              <strong>${escapeHtml(list.name)}</strong><br />
-              <span>${t('home.wordCount', { count: list.words.length })}</span>
-            </div>
-            <button type="button" class="practice-list" data-list-id="${escapeHtml(list.id)}">${t('setup.startButton')}</button>
-          </li>`).join('')}</ul>` : `<p class="empty-state">${t('home.emptyState')}</p>`}
-        <p class="status" id="home-message"${message ? '' : ' hidden'} role="status">${escapeHtml(message)}</p>
+        <div class="home-content">
+          ${lists.length ? `<ul class="word-list-items home-list-items">${lists.map((list) => `
+            <li class="word-list-item">
+              <div class="word-list-item__copy">
+                <strong>${escapeHtml(list.name)}</strong>
+                <span>${t('home.wordCount', { count: list.words.length })}</span>
+              </div>
+              <button type="button" class="practice-list" data-list-id="${escapeHtml(list.id)}">${t('setup.startButton')}</button>
+            </li>`).join('')}</ul>` : `<p class="empty-state home-empty-state">${t('home.emptyState')}</p>`}
+        </div>
+        <p class="status home-message" id="home-message"${message ? '' : ' hidden'} role="status">${escapeHtml(message)}</p>
       </section>`;
 
     document.getElementById('add-list').addEventListener('click', () => {
+      queueFocus('#list-name');
       view = 'import';
       message = '';
       render();
@@ -135,6 +186,7 @@ function initApp() {
     document.querySelectorAll('.practice-list').forEach((button) => {
       button.addEventListener('click', () => openPracticeSetup(button.dataset.listId));
     });
+    focusPendingTarget();
   }
 
   function renderMistakes(mistakeSummary) {
@@ -142,21 +194,36 @@ function initApp() {
 
     app.innerHTML = `
       <section class="card mistakes-screen">
-        <div class="section-heading">
-          <button type="button" class="link-button" id="back-home">${t('mistakes.backButton')}</button>
-          <p class="status" role="status">${t('mistakes.status', { count: mistakeSummary.count })}</p>
+        <div class="section-heading mistakes-screen__heading">
+          <div class="mistakes-screen__heading-copy">
+            <p class="eyebrow mistakes-screen__eyebrow">${t('mistakes.title')}</p>
+            <h2>${t('mistakes.title')}</h2>
+            <p class="lead mistakes-screen__lead">${t('mistakes.lead')}</p>
+          </div>
+          <div class="mistakes-screen__controls">
+            <button type="button" class="link-button" id="back-home">${t('mistakes.backButton')}</button>
+            <button type="button" class="link-button" id="mistakes-home">${t('practice.homeButton')}</button>
+          </div>
         </div>
-        <h2>${t('mistakes.title')}</h2>
-        <p class="lead">${t('mistakes.lead')}</p>
+        <p class="status mistakes-screen__status" role="status">${t('mistakes.status', { count: mistakeSummary.count })}</p>
         ${hasMistakes ? `
           <ul class="mistake-list">
             ${mistakeSummary.words.map((mistake) => `
               <li class="mistake-item">
-                <strong>${escapeHtml(mistake.word)}</strong>
-                ${mistake.wordListName ? `<span>${t('mistakes.fromList')} ${escapeHtml(mistake.wordListName)}</span>` : ''}
+                <div class="mistake-item__copy">
+                  <div class="mistake-item__row">
+                    <span class="mistake-item__label">${t('practice.missedWord')}</span>
+                    <strong class="mistake-item__value">${escapeHtml(mistake.word)}</strong>
+                  </div>
+                  <div class="mistake-item__row">
+                    <span class="mistake-item__label">${t('practice.correctSpelling')}</span>
+                    <strong class="mistake-item__value">${escapeHtml(mistake.word)}</strong>
+                  </div>
+                </div>
+                ${mistake.wordListName ? `<span class="mistake-item__meta">${t('mistakes.fromList')} ${escapeHtml(mistake.wordListName)}</span>` : ''}
               </li>`).join('')}
           </ul>
-          <div class="action-row action-row--spaced">
+          <div class="action-row action-row--spaced mistakes-screen__actions">
             <button type="button" id="practice-mistakes">${t('mistakes.practiceButton')}</button>
           </div>
           ${message ? `<p class="status" id="mistakes-message" role="status">${escapeHtml(message)}</p>` : ''}
@@ -165,13 +232,19 @@ function initApp() {
             <p class="mistakes-empty__eyebrow">${t('mistakes.emptyEyebrow')}</p>
             <h3>${t('mistakes.emptyTitle')}</h3>
             <p class="mistakes-empty__text">${t('mistakes.emptyText')}</p>
-            <p class="mistakes-empty__text">${t('mistakes.emptyHint')}</p>
           </div>
         `}
       </section>`;
 
     document.getElementById('back-home').addEventListener('click', () => {
       message = '';
+      queueFocus('#add-list');
+      view = 'home';
+      render();
+    });
+    document.getElementById('mistakes-home').addEventListener('click', () => {
+      message = '';
+      queueFocus('#add-list');
       view = 'home';
       render();
     });
@@ -181,35 +254,56 @@ function initApp() {
         startPracticeMistakes();
       });
     }
+    focusPendingTarget();
   }
 
   function renderImport() {
     app.innerHTML = `
-      <section class="card">
-        <button type="button" class="link-button" id="back-home">${t('import.backButton')}</button>
-        <h2>${t('import.title')}</h2>
-        <form id="import-form">
-          <label for="list-name">${t('import.nameLabel')}</label>
-          <input id="list-name" name="name" required maxlength="80" placeholder="${t('import.namePlaceholder')}" />
-          <label for="words">${t('import.wordsLabel')}</label>
-          <textarea id="words" name="words" rows="10" placeholder="${t('import.wordsPlaceholder')}"></textarea>
-          <label for="word-file">${t('import.fileLabel')}</label>
-          <input id="word-file" name="file" type="file" accept=".txt,.csv,text/plain,text/csv" />
-          <p class="status" id="import-message" role="alert"></p>
-          <button type="submit">${t('import.saveButton')}</button>
+      <section class="card import-screen">
+        <div class="import-header">
+          <p class="eyebrow">${t('hero.brand')}</p>
+          <h2>${t('import.title')}</h2>
+          <p class="lead">${t('import.headerLead')}</p>
+        </div>
+        <form id="import-form" class="import-form">
+          <div class="import-field">
+            <label for="list-name">${t('import.nameLabel')}</label>
+            <p class="import-field__hint" id="list-name-hint">${t('import.nameHint')}</p>
+            <input id="list-name" name="name" required maxlength="80" placeholder="${t('import.namePlaceholder')}" aria-describedby="list-name-hint import-message" />
+          </div>
+          <div class="import-field">
+            <label for="words">${t('import.wordsLabel')}</label>
+            <p class="import-field__hint" id="words-hint">${t('import.wordsHint')}</p>
+            <textarea id="words" name="words" rows="10" placeholder="${t('import.wordsPlaceholder')}" aria-describedby="words-hint import-message"></textarea>
+          </div>
+          <div class="import-upload">
+            <div class="import-upload__header">
+              <label for="word-file">${t('import.fileLabel')}</label>
+              <p class="import-field__hint" id="word-file-hint">${t('import.fileHint')}</p>
+            </div>
+            <input id="word-file" name="file" type="file" accept=".txt,.csv,text/plain,text/csv" aria-describedby="word-file-hint import-message" />
+          </div>
+          <p class="status import-message" id="import-message" role="alert" hidden></p>
+          <div class="action-row action-row--spaced import-actions">
+            <button type="button" class="link-button" id="back-home">${t('import.cancelButton')}</button>
+            <button type="submit">${t('import.saveButton')}</button>
+          </div>
         </form>
       </section>`;
 
     document.getElementById('back-home').addEventListener('click', () => {
+      queueFocus('#add-list');
       view = 'home';
       render();
     });
     document.getElementById('import-form').addEventListener('submit', saveImport);
+    focusPendingTarget();
   }
 
   function renderSetup(lists) {
     const list = lists.find((entry) => entry.id === selectedListId);
     if (!list) {
+      queueFocus('#add-list');
       view = 'home';
       render();
       return;
@@ -219,22 +313,29 @@ function initApp() {
 
     app.innerHTML = `
       <section class="card practice-setup">
-        <button type="button" class="link-button" id="back-home">${t('setup.backButton')}</button>
-        <h2>${t('setup.title')}</h2>
-        <p class="lead">${escapeHtml(list.name)} · ${t('home.wordCount', { count: list.words.length })}</p>
-        <p class="setup-label">${t('setup.label')}</p>
-        <div class="pill-row" role="group" aria-label="${t('setup.groupLabel')}">
+        <div class="practice-setup__topbar">
+          <button type="button" class="link-button practice-setup__back" id="back-home">${t('setup.backButton')}</button>
+          <p class="status practice-setup__status" role="status">${t('setup.title')}</p>
+        </div>
+        <div class="practice-setup__summary">
+          <p class="eyebrow practice-setup__eyebrow">${t('setup.title')}</p>
+          <h2>${escapeHtml(list.name)}</h2>
+          <p class="lead practice-setup__lead">${t('setup.lead', { name: escapeHtml(list.name), count: list.words.length })}</p>
+        </div>
+        <div class="practice-setup__panel">
+          <p class="setup-label">${t('setup.label')}</p>
+          <div class="pill-row practice-setup__sizes" role="group" aria-label="${t('setup.groupLabel')}">
           ${sizes.map((size) => `
-            <button type="button" class="pill ${selectedSessionSize === size ? 'pill--active' : ''}" data-size="${escapeHtml(String(size))}">${size === 'All' ? t('common.all') : escapeHtml(String(size))}</button>
+            <button type="button" class="pill ${selectedSessionSize === size ? 'pill--active' : ''}" data-size="${escapeHtml(String(size))}" aria-pressed="${selectedSessionSize === size ? 'true' : 'false'}">${size === 'All' ? t('common.all') : escapeHtml(String(size))}</button>
           `).join('')}
+          </div>
         </div>
         <p class="status" id="setup-message"${message ? '' : ' hidden'} role="status">${escapeHtml(message)}</p>
-        <div class="action-row action-row--spaced">
-          <button type="button" id="start-practice">${t('setup.startButton')}</button>
-        </div>
+        <button type="button" id="start-practice">${t('setup.startButton')}</button>
       </section>`;
 
     document.getElementById('back-home').addEventListener('click', () => {
+      queueFocus('#add-list');
       view = 'home';
       render();
     });
@@ -242,10 +343,12 @@ function initApp() {
       button.addEventListener('click', () => {
         const size = button.dataset.size === 'All' ? 'All' : Number(button.dataset.size);
         selectedSessionSize = size;
+        queueFocus(`[data-size="${button.dataset.size}"]`);
         render();
       });
     });
     document.getElementById('start-practice').addEventListener('click', startPractice);
+    focusPendingTarget();
   }
 
   function renderPractice() {
@@ -265,39 +368,58 @@ function initApp() {
       const showMistakesScreenAction = practiceMode === 'mistakes' || summary.needsMorePracticeCount > 0;
 
       app.innerHTML = `
-        <section class="card practice-screen">
-          <h2>${t('practice.completeTitle')}</h2>
-          <p class="lead">${t('practice.completeLead')}</p>
-          <div class="summary-stats" aria-label="${t('practice.summaryTitle')}">
-            <p>${t('practice.correctCount', { count: summary.correctCount })}</p>
-            <p>${t('practice.totalAttempted', { count: summary.totalAttempted })}</p>
-            <p>${t('practice.needsMorePracticeCount', { count: summary.needsMorePracticeCount })}</p>
-          </div>
-          <div class="summary-missed">
-            <h3>${t('practice.missedTitle')}</h3>
+        <section class="card practice-screen practice-summary" data-phase="${state.phase}">
+          <header class="practice-summary__hero">
+            <p class="eyebrow practice-summary__eyebrow">${t('practice.summaryTitle')}</p>
+            <div class="practice-summary__hero-copy">
+              <h2>${t('practice.completeTitle')}</h2>
+              <p class="lead">${t('practice.completeLead')}</p>
+            </div>
+          </header>
+          <section class="practice-summary__results" aria-labelledby="practice-summary-results-title">
+            <div class="practice-summary__section-heading">
+              <h3 id="practice-summary-results-title">${t('practice.summaryTitle')}</h3>
+            </div>
+            <div class="summary-stats practice-summary__stats" role="list">
+              <p role="listitem" class="summary-stats__item summary-stats__item--correct">${t('practice.correctCount', { count: summary.correctCount })}</p>
+              <p role="listitem" class="summary-stats__item summary-stats__item--attempted">${t('practice.totalAttempted', { count: summary.totalAttempted })}</p>
+              <p role="listitem" class="summary-stats__item summary-stats__item--review">${t('practice.needsMorePracticeCount', { count: summary.needsMorePracticeCount })}</p>
+            </div>
+          </section>
+          <section class="summary-missed practice-summary__review" aria-labelledby="practice-summary-missed-title">
+            <div class="practice-summary__section-heading">
+              <h3 id="practice-summary-missed-title">${t('practice.missedTitle')}</h3>
+            </div>
             ${summary.missedWords.length ? `
-              <ul class="summary-missed__list">
-                ${summary.missedWords.map((item) => `
+              <ol class="summary-missed__list">
+                ${summary.missedWords.map((item, index) => `
                   <li class="summary-missed__item">
-                    <p>${t('practice.missedWord')} <strong>${escapeHtml(item.word)}</strong></p>
-                    <p>${t('practice.correctSpelling')} ${escapeHtml(item.correctSpelling)}</p>
+                    <span class="summary-missed__number">${index + 1}</span>
+                    <div class="summary-missed__copy">
+                      <p class="summary-missed__word">${escapeHtml(item.word)}</p>
+                      <p class="summary-missed__spelling">${t('practice.correctSpelling')} <strong>${escapeHtml(item.correctSpelling)}</strong></p>
+                    </div>
                   </li>`).join('')}
-              </ul>
-            ` : `<p class="empty-state">${t('practice.noMissed')}</p>`}
-          </div>
-          <div class="action-row action-row--spaced">
-            ${showPracticeMistakesAction ? `<button type="button" id="practice-mistakes-summary">${t('practice.practiceMistakesButton')}</button>` : ''}
-            ${showMistakesScreenAction ? `<button type="button" id="summary-mistakes">${t('practice.mistakesButton')}</button>` : ''}
-            <button type="button" id="practice-home">${t('practice.homeButton')}</button>
+              </ol>
+            ` : `<p class="empty-state summary-missed__empty">${t('practice.noMissed')}</p>`}
+          </section>
+          <div class="action-row action-row--spaced practice-summary__actions">
+            ${showPracticeMistakesAction ? `<button type="button" id="practice-mistakes-summary" class="practice-summary__primary-action">${t('practice.practiceMistakesButton')}</button>` : ''}
+            <div class="practice-summary__secondary-actions">
+              ${showMistakesScreenAction ? `<button type="button" id="summary-mistakes">${t('practice.mistakesButton')}</button>` : ''}
+              <button type="button" id="practice-home">${t('practice.homeButton')}</button>
+            </div>
           </div>
         </section>`;
       if (showPracticeMistakesAction) {
         document.getElementById('practice-mistakes-summary').addEventListener('click', () => {
+          queueFocus('#practice-mistakes');
           startPracticeMistakes();
         });
       }
       if (showMistakesScreenAction) {
         document.getElementById('summary-mistakes').addEventListener('click', () => {
+          queueFocus('#back-home');
           returnToMistakesFromPractice();
         });
       }
@@ -306,9 +428,11 @@ function initApp() {
         practiceList = null;
         practiceMode = 'normal';
         audioMessage = '';
+        queueFocus('#add-list');
         view = 'home';
         render();
       });
+      focusPendingTarget();
       return;
     }
 
@@ -322,36 +446,39 @@ function initApp() {
     const nextLabel = state.currentIndex + 1 >= state.totalWords ? t('practice.doneButton') : t('practice.nextButton');
 
     app.innerHTML = `
-      <section class="card practice-screen">
+      <section class="card practice-screen" data-phase="${state.phase}">
         <div class="practice-header">
-          <button type="button" class="link-button" id="practice-back">${t('setup.backButton')}</button>
-          <div class="practice-progress" aria-label="${t('practice.progressLabel')}">
-            <div class="practice-progress__label-row">
+          <button type="button" class="link-button practice-back" id="practice-back">${t('setup.backButton')}</button>
+          <p class="status practice-status" aria-live="polite">${t('practice.progressLabel')}</p>
+        </div>
+        <div class="practice-progress" aria-label="${t('practice.progressLabel')}">
+          <div class="practice-progress__label-row">
             <p class="practice-progress__label">${t('practice.progressLabel')}</p>
-            <p class="status" aria-live="polite">${t('practice.questionStatus', { current: state.currentPosition, total: state.totalWords })}</p>
-            </div>
-            <div class="practice-progress__track" aria-hidden="true">
-              <div class="practice-progress__fill" style="width: ${progressPercent}%"></div>
-            </div>
+            <p class="practice-progress__value status" aria-live="polite">${t('practice.questionStatus', { current: state.currentPosition, total: state.totalWords })}</p>
+          </div>
+          <div class="practice-progress__track" aria-hidden="true">
+            <div class="practice-progress__fill" style="width: ${progressPercent}%"></div>
           </div>
         </div>
-        <h2>${escapeHtml(practiceMode === 'mistakes' ? t('mistakes.practiceSessionName') : practiceList.name)}</h2>
-        <p class="practice-prompt">${t('practice.prompt')}</p>
+        <div class="practice-question">
+          <h2>${escapeHtml(practiceMode === 'mistakes' ? t('mistakes.practiceSessionName') : practiceList.name)}</h2>
+          <p class="practice-prompt">${t('practice.prompt')}</p>
+        </div>
         <div class="practice-panel">
           <div class="practice-actions">
             <button type="button" id="play-word">${t('practice.playButton')}</button>
             <span class="assistive-text">${t('practice.playHint')}</span>
           </div>
-          ${audioMessage ? `<p class="status status--error" role="alert">${escapeHtml(audioMessage)}</p>` : ''}
-          <form id="practice-form">
+          ${audioMessage ? `<p class="status status--error practice-audio-message" role="alert">${escapeHtml(audioMessage)}</p>` : ''}
+          <form id="practice-form" class="practice-form">
             <label for="answer">${t('practice.answerLabel')}</label>
             <input id="answer" name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('practice.answerPlaceholder')}" value="${escapeHtml(answerValue)}" ${canEditAnswer ? '' : 'disabled'} />
-            <div class="action-row action-row--spaced">
+            <div class="action-row action-row--spaced practice-submit-row">
               <button type="submit" id="submit-answer"${canEditAnswer ? '' : ' hidden'}>${t('practice.submitButton')}</button>
               <button type="button" id="next-word"${canShowFeedback ? '' : ' hidden'}>${nextLabel}</button>
             </div>
           </form>
-          <div class="${feedbackClass}" id="feedback"${feedback ? '' : ' hidden'} aria-live="polite">
+          <div class="${feedbackClass} practice-feedback" id="feedback"${feedback ? '' : ' hidden'} aria-live="polite">
             ${renderFeedback(feedback)}
           </div>
         </div>
@@ -362,6 +489,7 @@ function initApp() {
       practiceList = null;
       practiceMode = 'normal';
       audioMessage = '';
+      queueFocus('#add-list');
       view = 'home';
       render();
     });
@@ -371,7 +499,7 @@ function initApp() {
       practice.setAnswer(event.target.value);
       audioMessage = '';
     });
-    answerInput.focus();
+    queuePracticeAnswerFocus();
 
     document.getElementById('practice-form').addEventListener('submit', (event) => {
       event.preventDefault();
@@ -397,8 +525,17 @@ function initApp() {
     });
 
     document.getElementById('next-word').addEventListener('click', () => {
-      practice.next();
+      const nextState = practice.next();
       audioMessage = '';
+      if (nextState.phase === 'complete') {
+        if (SpellingBeastPractice.shouldShowPracticeMistakesAction(nextState.summary)) {
+          queueFocus('#practice-mistakes-summary');
+        } else if (practiceMode === 'mistakes' || nextState.summary.needsMorePracticeCount > 0) {
+          queueFocus('#summary-mistakes');
+        } else {
+          queueFocus('#practice-home');
+        }
+      }
       render();
     });
 
@@ -412,6 +549,7 @@ function initApp() {
         render();
       }
     });
+    focusPendingTarget();
   }
 
   function renderFeedback(feedback) {
@@ -420,23 +558,33 @@ function initApp() {
     }
 
     if (feedback.isCorrect) {
-      return `<p>${t('practice.correctFeedback')}</p>`;
+      return `<p class="practice-feedback__title">${t('practice.correctFeedback')}</p>`;
     }
 
     return `
-      <p>${t('practice.tryAgain')}</p>
-      <p>${t('practice.yourAnswer')} ${escapeHtml(feedback.submittedAnswer)}</p>
-      <p>${t('practice.correctAnswer')} ${escapeHtml(feedback.correctAnswer)}</p>`;
+      <p class="practice-feedback__title">${t('practice.tryAgain')}</p>
+      <dl class="feedback__details">
+        <div class="feedback__detail">
+          <dt class="feedback__label">${t('practice.yourAnswer')}</dt>
+          <dd class="feedback__value">${escapeHtml(feedback.submittedAnswer)}</dd>
+        </div>
+        <div class="feedback__detail">
+          <dt class="feedback__label">${t('practice.correctAnswer')}</dt>
+          <dd class="feedback__value">${escapeHtml(feedback.correctAnswer)}</dd>
+        </div>
+      </dl>`;
   }
 
   function showHomeMessage(text) {
     message = text;
+    queueFocus('#add-list');
     view = 'home';
     render();
   }
 
   function openMistakes() {
     message = '';
+    queueFocus('#back-home');
     view = 'mistakes';
     render();
   }
@@ -445,6 +593,7 @@ function initApp() {
     selectedListId = listId;
     selectedSessionSize = 5;
     message = '';
+    queueFocus('[data-size="5"]');
     view = 'setup';
     render();
   }
@@ -453,6 +602,7 @@ function initApp() {
     const lists = persistence.loadWordLists();
     const list = lists.find((entry) => entry.id === selectedListId);
     if (!list) {
+      queueFocus('#add-list');
       view = 'home';
       render();
       return;
@@ -476,6 +626,7 @@ function initApp() {
       practiceList = null;
       practiceMode = 'mistakes';
       audioMessage = '';
+      queueFocus('#back-home');
       render();
       return;
     }
@@ -495,6 +646,7 @@ function initApp() {
     practiceList = null;
     practiceMode = 'normal';
     audioMessage = '';
+    queueFocus('#back-home');
     openMistakes();
   }
 
@@ -503,14 +655,18 @@ function initApp() {
     const form = event.currentTarget;
     const messageNode = document.getElementById('import-message');
     const file = form.elements.file.files[0];
+    messageNode.hidden = true;
+    messageNode.textContent = '';
     const saveWords = (result) => {
       if (!result.valid) {
         const errorKey = result.error === 'Add at least one word, with one word on each line.'
           ? 'import.emptyWords'
           : 'import.unsupportedFileType';
+        messageNode.hidden = false;
         messageNode.textContent = t(errorKey);
         return;
       }
+      queueFocus('#add-list');
       persistence.saveWordList(SpellingBeastWordList.createWordList({
         id: SpellingBeastWordList.createId(),
         name: form.elements.name.value.trim(),
@@ -534,6 +690,7 @@ function initApp() {
 
     const reader = new FileReader();
     reader.onerror = () => {
+      messageNode.hidden = false;
       messageNode.textContent = t('import.readError');
     };
     reader.onload = () => saveWords(SpellingBeastImport.parseImportInput(type, reader.result));
