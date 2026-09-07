@@ -18,6 +18,7 @@ function initApp() {
   let practiceList = null;
   let practiceMode = 'normal';
   let audioMessage = '';
+  let audioPlaying = false;
   let pendingFocusSelector = '';
 
   function t(key, values) {
@@ -466,7 +467,16 @@ function initApp() {
         </div>
         <div class="practice-panel">
           <div class="practice-actions">
-            <button type="button" id="play-word">${t('practice.playButton')}</button>
+            <button type="button" id="play-word" data-playing="${audioPlaying ? 'true' : 'false'}" aria-busy="${audioPlaying ? 'true' : 'false'}" ${audioPlaying ? 'disabled' : ''}>
+              <span class="play-icon" aria-hidden="true">
+                <span class="play-icon__body"></span>
+                <span class="play-icon__wave play-icon__wave--one"></span>
+                <span class="play-icon__wave play-icon__wave--two"></span>
+                <span class="play-icon__wave play-icon__wave--three"></span>
+              </span>
+              <span class="play-label">${t('practice.playButton')}</span>
+              ${audioPlaying ? '<span class="play-status" aria-hidden="true"></span>' : ''}
+            </button>
             <span class="assistive-text">${t('practice.playHint')}</span>
           </div>
           ${audioMessage ? `<p class="status status--error practice-audio-message" role="alert">${escapeHtml(audioMessage)}</p>` : ''}
@@ -540,12 +550,18 @@ function initApp() {
     });
 
     document.getElementById('play-word').addEventListener('click', async () => {
+      if (audioPlaying) {
+        return;
+      }
       audioMessage = '';
+      audioPlaying = true;
       render();
       try {
         await SpellingBeastAudio.playWord(currentWord);
       } catch (error) {
         audioMessage = getAudioFailureMessage(error);
+      } finally {
+        audioPlaying = false;
         render();
       }
     });
