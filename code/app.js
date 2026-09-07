@@ -614,6 +614,7 @@ function initApp() {
     practiceList = list;
     practiceMode = 'normal';
     audioMessage = '';
+    audioPlaying = false;
     view = 'practice';
     render();
   }
@@ -626,6 +627,7 @@ function initApp() {
       practiceList = null;
       practiceMode = 'mistakes';
       audioMessage = '';
+      audioPlaying = false;
       queueFocus('#back-home');
       render();
       return;
@@ -637,6 +639,7 @@ function initApp() {
     practiceList = session;
     practiceMode = 'mistakes';
     audioMessage = '';
+    audioPlaying = false;
     view = 'practice';
     render();
   }
@@ -646,6 +649,7 @@ function initApp() {
     practiceList = null;
     practiceMode = 'normal';
     audioMessage = '';
+    audioPlaying = false;
     queueFocus('#back-home');
     openMistakes();
   }

@@ -19,8 +19,8 @@
       'home.savedMessage': 'Word list saved.',
 
       'hero.brand': 'SpellingBeast',
-      'hero.title': 'Spelling Practice',
-      'hero.lead': 'Add your own words, then start practicing.',
+      'hero.title': 'SpellingBeast',
+      'hero.lead': "Pick a list. Let’s play!",
       'footer.brand': 'SpellingBeast',
       'footer.tagline': 'Local-first static scaffold',
       'language.button': 'Language: EN',
