@@ -1,4 +1,5 @@
 import { createAuthClient } from '@neondatabase/neon-js/auth';
+import { requestToken } from './token-fetch.mjs';
 
 function unwrap(result, fallbackCode = 'auth_failed') {
   if (result?.error) {
@@ -19,9 +20,7 @@ function createClient(baseUrl) {
       return unwrap(await client.getSession(), 'session_failed');
     },
     async token() {
-      const data = unwrap(await client.token(), 'token_failed');
-      if (!data?.token) throw Object.assign(new Error('Authentication required.'), { code: 'unauthorized' });
-      return data.token;
+      return requestToken(baseUrl);
     },
     async signUp(email, password) {
       return unwrap(await client.signUp.email({ email, password, name: 'SpellingBeast User' }), 'signup_failed');

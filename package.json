@@ -7,7 +7,7 @@
     "build": "esbuild client-src/neon-auth-entry.mjs --bundle --platform=browser --format=iife --outfile=code/neon-auth-sdk.js --minify",
     "migrate": "node server/migrate.js",
     "start": "node server/index.js",
-    "test": "npm run build && node --test server/*.test.js && for f in code/*.test.js; do node \"$f\" || exit 1; done"
+    "test": "npm run build && node --test client-src/*.test.mjs server/*.test.js && for f in code/*.test.js; do node \"$f\" || exit 1; done"
   },
   "engines": {
     "node": ">=20"
