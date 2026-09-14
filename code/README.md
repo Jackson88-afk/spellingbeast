@@ -1,43 +1,68 @@
-# SpellingBeast
+# SpellingBeast v2
 
-SpellingBeast is a child-friendly, browser-local spelling-practice application. It currently lets a child create a word list by pasting words or importing a TXT/CSV file, saves lists in browser localStorage, and displays saved lists with actions for practice and mistakes.
+SpellingBeast is a bilingual spelling-practice app for children. v2 uses Neon PostgreSQL, Neon Managed Better Auth, and one Render Node.js Web Service.
 
-## Requirements
+## Local setup
 
-- A modern browser with JavaScript enabled.
-- Node.js to run the automated unit tests.
-- Python 3 to serve the static files locally.
-- `agent-browser` only for the optional browser E2E check.
+1. Copy `.env.example` to a local ignored `.env.local` and fill in the Neon/Render values.
+2. Enable Neon Managed Better Auth for the database branch.
+3. In Neon Auth settings, enable email/password, require verification at sign-up, and choose numeric verification codes.
+4. Configure an email provider and add the local/production origins as trusted origins.
+5. Install, build, migrate, and start:
 
-No npm packages, backend, database, build step, or deployment configuration are required.
-
-## Run locally
-
-```bash
-cd /Users/wukongsun/ai_project/spellingbeast/code
-python3 -m http.server 8765
+```sh
+npm ci
+npm run build
+set -a; source .env.local; set +a
+npm run migrate
+npm start
 ```
 
-Open http://127.0.0.1:8765/ in a browser.
+The app binds to `0.0.0.0:$PORT` and serves the frontend plus same-origin `/api/v2/*` endpoints.
 
-## Test
+## Required environment variables
 
-Run the domain and persistence tests:
+- `DATABASE_URL`: pooled Neon runtime connection string with TLS.
+- `DATABASE_URL_UNPOOLED`: direct Neon connection string used only by `npm run migrate`.
+- `APP_ORIGIN`: exact public Render origin, such as `https://spellingbeast.onrender.com`.
+- `NEON_AUTH_BASE_URL`: public Managed Better Auth URL.
+- `NEON_AUTH_JWKS_URL`: Managed Better Auth JWKS URL.
+- `PORT`: optional locally; Render supplies it.
 
-```bash
-cd /Users/wukongsun/ai_project/spellingbeast/code
-node wordlist.test.js
-node import.test.js
-node persistence.test.js
+Only `NEON_AUTH_BASE_URL` is returned to the browser. Database credentials and JWKS configuration remain server-side.
+
+## Render
+
+`render.yaml` defines one Web Service:
+
+- Build: `npm ci && npm run build && npm run migrate`
+- Start: `npm start`
+- Health check: `/health`
+
+The migration is part of the build so a failed schema update stops deployment before the new runtime starts. Do not configure Render health probes against `/ready`; it queries Neon and would prevent Free-plan scale-to-zero.
+
+## Routes
+
+Public:
+
+- `GET /health`: process-only health.
+- `GET /ready`: explicit Neon connectivity check.
+- `GET /api/v2/config`: public Neon Auth URL only.
+
+Authenticated:
+
+- `GET /api/v2/state`
+- `PUT /api/v2/word-lists/:id`
+- `POST /api/v2/mistakes`
+- `DELETE /api/v2/mistakes/:id`
+- `POST /api/v2/migrate`
+
+Protected requests use short-lived Neon Auth JWTs. The API verifies EdDSA signature, issuer, audience, expiration, verified-email status, and derives ownership only from `sub`.
+
+## Tests
+
+```sh
+npm test
 ```
 
-With the static server above running, run the Word Lists browser E2E check:
-
-```bash
-cd /Users/wukongsun/ai_project/spellingbeast/code
-sh wordlists-ui.e2e.sh
-```
-
-## Build and deployment
-
-This is a static application: there is no build command. No deployment configuration exists yet; any static-file host can serve the contents of this directory when deployment is added.
+Tests cover the existing domain behavior plus Neon session integration, auth operations, JWT validation, owner derivation, origin validation, cold-start retry, and idempotent local migration behavior.

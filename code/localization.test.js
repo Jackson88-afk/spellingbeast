@@ -6,6 +6,9 @@ assert.deepStrictEqual(localization.SUPPORTED_LOCALES, ['en', 'zh']);
 assert.strictEqual(localization.translate('en', 'home.title'), 'Word Lists');
 assert.strictEqual(localization.translate('zh', 'home.title'), '单词表');
 assert.strictEqual(localization.translate('en', 'home.wordCount', { count: 3 }), '3 words');
+assert.strictEqual(localization.translate('en', 'auth.loginTitle'), 'Log In');
+assert.strictEqual(localization.translate('zh', 'auth.verifyTitle'), '验证邮箱');
+assert.strictEqual(localization.translate('zh', 'auth.resetFailed'), '密码重置失败，请重新获取验证码。');
 
 const state = localization.createLocalization();
 assert.strictEqual(state.getLocale(), 'en');

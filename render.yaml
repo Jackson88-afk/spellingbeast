@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: spellingbeast
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build && npm run migrate
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: APP_ORIGIN
+        sync: false
+      - key: NEON_AUTH_BASE_URL
+        sync: false
+      - key: NEON_AUTH_JWKS_URL
+        sync: false

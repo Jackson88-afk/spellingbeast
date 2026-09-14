@@ -1,7 +1,17 @@
 function initApp() {
   window.__appInitRan = true;
   const app = document.getElementById('app');
-  const persistence = SpellingBeastPersistence.createPersistence();
+  const localPersistence = SpellingBeastPersistence.createPersistence();
+  const apiClient = typeof SpellingBeastApi !== 'undefined'
+    ? SpellingBeastApi.createApiClient()
+    : null;
+  const persistence = typeof SpellingBeastRemotePersistence !== 'undefined' && apiClient
+    ? SpellingBeastRemotePersistence.createRemotePersistence({
+      apiClient,
+      localPersistence,
+      storage: window.localStorage,
+    })
+    : localPersistence;
   const localization = typeof SpellingBeastLocalization !== 'undefined'
     ? SpellingBeastLocalization.createLocalization('en', { storage: window.localStorage })
     : {
@@ -19,7 +29,13 @@ function initApp() {
   let practiceMode = 'normal';
   let audioMessage = '';
   let audioPlaying = false;
+  let syncError = '';
+  let retrySync = null;
   let pendingFocusSelector = '';
+  let authUser = null;
+  let authMode = 'login';
+  let authEmail = '';
+  let authMessage = '';
 
   function t(key, values) {
     return localization.translate(key, values);
@@ -76,9 +92,6 @@ function initApp() {
       document.documentElement.lang = localization.getLocale();
     }
     const canQuery = typeof document.querySelector === 'function';
-    const eyebrow = canQuery ? document.querySelector('.hero .eyebrow') : null;
-    const heroTitle = canQuery ? document.querySelector('.hero h1') : null;
-    const heroLead = canQuery ? document.querySelector('.hero .lead') : null;
     const footerBrand = canQuery ? document.querySelector('.footer span') : null;
     const footerTagline = typeof document.getElementById === 'function'
       ? document.getElementById('footer-tagline')
@@ -86,15 +99,16 @@ function initApp() {
     const languageButton = typeof document.getElementById === 'function'
       ? document.getElementById('language-toggle')
       : null;
-    if (eyebrow) eyebrow.textContent = t('hero.brand');
-    if (heroTitle) heroTitle.textContent = t('hero.title');
-    if (heroLead) heroLead.textContent = t('hero.lead');
+    const logoutButton = typeof document.getElementById === 'function'
+      ? document.getElementById('logout-button')
+      : null;
     if (footerBrand) footerBrand.textContent = t('footer.brand');
     if (footerTagline) footerTagline.textContent = t('footer.tagline');
     if (languageButton) {
       languageButton.textContent = t('language.button');
       languageButton.setAttribute('aria-label', t('language.ariaLabel'));
     }
+    if (logoutButton) logoutButton.textContent = t('auth.logout');
   }
 
   const languageButton = typeof document.getElementById === 'function'
@@ -105,10 +119,171 @@ function initApp() {
       localization.setLocale(localization.getLocale() === 'en' ? 'zh' : 'en');
     });
   }
+  const logoutButton = typeof document.getElementById === 'function'
+    ? document.getElementById('logout-button')
+    : null;
+  if (logoutButton) {
+    logoutButton.addEventListener('click', async () => {
+      logoutButton.disabled = true;
+      try { if (apiClient) await apiClient.signOut(); } catch (_error) {}
+      authUser = null;
+      authMode = 'login';
+      authMessage = '';
+      logoutButton.hidden = true;
+      renderAuth();
+    });
+  }
   localization.onChange(() => {
     applyLocalization();
-    render();
+    if (apiClient && !authUser) renderAuth();
+    else render();
   });
+
+  function setAuthenticatedHeader(authenticated) {
+    if (logoutButton) {
+      logoutButton.hidden = !authenticated;
+      logoutButton.disabled = false;
+    }
+  }
+
+  function authErrorKey(mode, error) {
+    const code = String(error?.code || '').toUpperCase();
+    const detail = `${code} ${error?.message || ''}`;
+    if (mode === 'login' && /EMAIL.*VERIF|VERIF.*EMAIL/i.test(detail)) return 'auth.emailNotVerified';
+    if (/TOO_MANY|RATE/i.test(detail)) return 'auth.tooManyAttempts';
+    if (mode === 'verify') return 'auth.invalidCode';
+    if (mode === 'forgot') return 'auth.resetRequestFailed';
+    if (mode === 'reset') return 'auth.resetFailed';
+    if (mode === 'signup') return 'auth.signupFailed';
+    return 'auth.invalidCredentials';
+  }
+
+  function authFormContent() {
+    const emailValue = escapeHtml(authEmail);
+    if (authMode === 'verify') return `
+      <h2>${t('auth.verifyTitle')}</h2>
+      <p class="auth-note">${t('auth.verifyNote')}</p>
+      <form class="auth-form" id="auth-form">
+        <label>${t('auth.emailLabel')}<input name="email" type="email" autocomplete="email" value="${emailValue}" required /></label>
+        <label>${t('auth.codeLabel')}<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
+        <button type="submit">${t('auth.verifyButton')}</button>
+      </form>
+      <div class="auth-links"><button type="button" class="link-button" id="resend-code">${t('auth.resend')}</button><button type="button" class="link-button" data-auth-mode="login">${t('auth.backLogin')}</button></div>`;
+    if (authMode === 'forgot') return `
+      <h2>${t('auth.forgotTitle')}</h2>
+      <form class="auth-form" id="auth-form">
+        <label>${t('auth.emailLabel')}<input name="email" type="email" autocomplete="email" value="${emailValue}" required /></label>
+        <button type="submit">${t('auth.sendReset')}</button>
+      </form>
+      <div class="auth-links"><button type="button" class="link-button" data-auth-mode="login">${t('auth.backLogin')}</button></div>`;
+    if (authMode === 'reset') return `
+      <h2>${t('auth.resetTitle')}</h2>
+      <form class="auth-form" id="auth-form">
+        <label>${t('auth.emailLabel')}<input name="email" type="email" autocomplete="email" value="${emailValue}" required /></label>
+        <label>${t('auth.codeLabel')}<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required /></label>
+        <label>${t('auth.newPasswordLabel')}<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required /></label>
+        <button type="submit">${t('auth.resetButton')}</button>
+      </form>
+      <div class="auth-links"><button type="button" class="link-button" data-auth-mode="login">${t('auth.backLogin')}</button></div>`;
+    const signup = authMode === 'signup';
+    return `
+      <h2>${t(signup ? 'auth.signupTitle' : 'auth.loginTitle')}</h2>
+      <form class="auth-form" id="auth-form">
+        <label>${t('auth.emailLabel')}<input name="email" type="email" autocomplete="email" value="${emailValue}" required /></label>
+        <label>${t('auth.passwordLabel')}<input name="password" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="8" maxlength="128" required /></label>
+        <button type="submit">${t(signup ? 'auth.signupButton' : 'auth.loginButton')}</button>
+      </form>
+      <div class="auth-links">
+        <button type="button" class="link-button" data-auth-mode="${signup ? 'login' : 'signup'}">${t(signup ? 'auth.haveAccount' : 'auth.needAccount')}</button>
+        ${signup ? '' : `<button type="button" class="link-button" data-auth-mode="forgot">${t('auth.forgotPassword')}</button>`}
+      </div>`;
+  }
+
+  function renderAuth() {
+    setAuthenticatedHeader(false);
+    app.innerHTML = `<section class="card auth-screen">${authFormContent()}<p class="status auth-message" role="status"${authMessage ? '' : ' hidden'}>${escapeHtml(authMessage)}</p></section>`;
+    document.querySelectorAll('[data-auth-mode]').forEach((button) => button.addEventListener('click', () => {
+      authMode = button.dataset.authMode;
+      authMessage = '';
+      renderAuth();
+    }));
+    const resend = document.getElementById('resend-code');
+    if (resend) resend.addEventListener('click', async () => {
+      resend.disabled = true;
+      try {
+        const email = document.querySelector('#auth-form [name="email"]').value.trim();
+        await apiClient.resendVerification(email);
+        authEmail = email;
+        authMessage = t('auth.codeSent');
+      } catch (error) {
+        authMessage = t(authErrorKey('verify', error));
+      }
+      renderAuth();
+    });
+    const form = document.getElementById('auth-form');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const submit = form.querySelector('[type="submit"]');
+      submit.disabled = true;
+      authMessage = '';
+      const email = form.elements.email.value.trim();
+      authEmail = email;
+      try {
+        if (authMode === 'signup') {
+          await apiClient.signUp(email, form.elements.password.value);
+          authMode = 'verify';
+          authMessage = t('auth.codeSent');
+        } else if (authMode === 'verify') {
+          await apiClient.verifyEmail(email, form.elements.code.value.trim());
+          const signedIn = await finishAuthentication(true);
+          if (!signedIn) {
+            authMode = 'login';
+            authMessage = t('auth.emailVerified');
+            renderAuth();
+          }
+          return;
+        } else if (authMode === 'forgot') {
+          await apiClient.requestPasswordReset(email);
+          authMode = 'reset';
+          authMessage = t('auth.resetCodeSent');
+        } else if (authMode === 'reset') {
+          await apiClient.resetPassword(email, form.elements.code.value.trim(), form.elements.password.value);
+          authMode = 'login';
+          authMessage = t('auth.passwordReset');
+        } else {
+          await apiClient.signIn(email, form.elements.password.value);
+          await finishAuthentication();
+          return;
+        }
+      } catch (error) {
+        const key = authErrorKey(authMode, error);
+        if (key === 'auth.emailNotVerified') authMode = 'verify';
+        authMessage = t(key);
+      }
+      renderAuth();
+    });
+    const firstInput = form.querySelector('input');
+    if (firstInput) firstInput.focus();
+  }
+
+  async function finishAuthentication(allowMissingSession = false) {
+    renderLoading(null);
+    const current = await apiClient.getSession();
+    if (!current?.user) {
+      if (allowMissingSession) return false;
+      throw Object.assign(new Error('Authentication required.'), { code: 'unauthorized' });
+    }
+    authUser = current.user;
+    setAuthenticatedHeader(true);
+    try {
+      await persistence.initialize();
+      view = 'home';
+      render();
+    } catch (error) {
+      renderLoading(error);
+    }
+    return true;
+  }
 
   function getAudioFailureMessage(error) {
     if (typeof SpellingBeastAudio !== 'undefined' && typeof SpellingBeastAudio.describeSpeechSynthesisFailure === 'function') {
@@ -197,7 +372,6 @@ function initApp() {
       <section class="card mistakes-screen">
         <div class="section-heading mistakes-screen__heading">
           <div class="mistakes-screen__heading-copy">
-            <p class="eyebrow mistakes-screen__eyebrow">${t('mistakes.title')}</p>
             <h2>${t('mistakes.title')}</h2>
             <p class="lead mistakes-screen__lead">${t('mistakes.lead')}</p>
           </div>
@@ -230,7 +404,6 @@ function initApp() {
           ${message ? `<p class="status" id="mistakes-message" role="status">${escapeHtml(message)}</p>` : ''}
         ` : `
           <div class="mistakes-empty" aria-live="polite">
-            <p class="mistakes-empty__eyebrow">${t('mistakes.emptyEyebrow')}</p>
             <h3>${t('mistakes.emptyTitle')}</h3>
             <p class="mistakes-empty__text">${t('mistakes.emptyText')}</p>
           </div>
@@ -262,7 +435,6 @@ function initApp() {
     app.innerHTML = `
       <section class="card import-screen">
         <div class="import-header">
-          <p class="eyebrow">${t('hero.brand')}</p>
           <h2>${t('import.title')}</h2>
           <p class="lead">${t('import.headerLead')}</p>
         </div>
@@ -316,10 +488,8 @@ function initApp() {
       <section class="card practice-setup">
         <div class="practice-setup__topbar">
           <button type="button" class="link-button practice-setup__back" id="back-home">${t('setup.backButton')}</button>
-          <p class="status practice-setup__status" role="status">${t('setup.title')}</p>
         </div>
         <div class="practice-setup__summary">
-          <p class="eyebrow practice-setup__eyebrow">${t('setup.title')}</p>
           <h2>${escapeHtml(list.name)}</h2>
           <p class="lead practice-setup__lead">${t('setup.lead', { name: escapeHtml(list.name), count: list.words.length })}</p>
         </div>
@@ -371,7 +541,6 @@ function initApp() {
       app.innerHTML = `
         <section class="card practice-screen practice-summary" data-phase="${state.phase}">
           <header class="practice-summary__hero">
-            <p class="eyebrow practice-summary__eyebrow">${t('practice.summaryTitle')}</p>
             <div class="practice-summary__hero-copy">
               <h2>${t('practice.completeTitle')}</h2>
               <p class="lead">${t('practice.completeLead')}</p>
@@ -480,12 +649,13 @@ function initApp() {
             <span class="assistive-text">${t('practice.playHint')}</span>
           </div>
           ${audioMessage ? `<p class="status status--error practice-audio-message" role="alert">${escapeHtml(audioMessage)}</p>` : ''}
+          ${syncError ? `<div class="sync-error" role="alert"><span>${escapeHtml(syncError)}</span><button type="button" id="retry-sync">${t('app.retry')}</button></div>` : ''}
           <form id="practice-form" class="practice-form">
             <label for="answer">${t('practice.answerLabel')}</label>
             <input id="answer" name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('practice.answerPlaceholder')}" value="${escapeHtml(answerValue)}" ${canEditAnswer ? '' : 'disabled'} />
             <div class="action-row action-row--spaced practice-submit-row">
               <button type="submit" id="submit-answer"${canEditAnswer ? '' : ' hidden'}>${t('practice.submitButton')}</button>
-              <button type="button" id="next-word"${canShowFeedback ? '' : ' hidden'}>${nextLabel}</button>
+              <button type="button" id="next-word"${canShowFeedback ? '' : ' hidden'}${syncError ? ' disabled' : ''}>${nextLabel}</button>
             </div>
           </form>
           <div class="${feedbackClass} practice-feedback" id="feedback"${feedback ? '' : ' hidden'} aria-live="polite">
@@ -511,25 +681,36 @@ function initApp() {
     });
     queuePracticeAnswerFocus();
 
-    document.getElementById('practice-form').addEventListener('submit', (event) => {
+    document.getElementById('practice-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       const submitted = practice.submitAnswer(answerInput.value);
       practice.showFeedback();
+      let persistenceAction = null;
       if (practiceMode === 'normal' && !submitted.feedback.isCorrect) {
-        persistence.saveActiveMistake(SpellingBeastMistake.createMistake({
+        const mistake = SpellingBeastMistake.createMistake({
           wordListId: practiceList.id,
           wordListName: practiceList.name,
           word: currentWord,
-        }));
+        });
+        persistenceAction = () => persistence.saveActiveMistake(mistake);
       }
       if (practiceMode === 'mistakes') {
         const activeMistake = practiceList.mistakes && practiceList.mistakes[state.currentIndex];
-        SpellingBeastMistake.applyPracticeMistakeSubmission({
-          practiceMode,
-          isCorrect: submitted.feedback.isCorrect,
-          activeMistake,
-          persistence,
-        });
+        if (activeMistake) {
+          persistenceAction = submitted.feedback.isCorrect
+            ? () => persistence.deleteActiveMistake(activeMistake)
+            : () => persistence.saveActiveMistake(activeMistake);
+        }
+      }
+      syncError = '';
+      retrySync = null;
+      if (persistenceAction) {
+        try {
+          await persistenceAction();
+        } catch (_error) {
+          syncError = t('app.syncError');
+          retrySync = persistenceAction;
+        }
       }
       render();
     });
@@ -548,6 +729,21 @@ function initApp() {
       }
       render();
     });
+
+    const retrySyncButton = document.getElementById('retry-sync');
+    if (retrySyncButton && retrySync) {
+      retrySyncButton.addEventListener('click', async () => {
+        retrySyncButton.disabled = true;
+        try {
+          await retrySync();
+          syncError = '';
+          retrySync = null;
+        } catch (_error) {
+          syncError = t('app.syncError');
+        }
+        render();
+      });
+    }
 
     document.getElementById('play-word').addEventListener('click', async () => {
       if (audioPlaying) {
@@ -631,6 +827,8 @@ function initApp() {
     practiceMode = 'normal';
     audioMessage = '';
     audioPlaying = false;
+    syncError = '';
+    retrySync = null;
     view = 'practice';
     render();
   }
@@ -656,6 +854,8 @@ function initApp() {
     practiceMode = 'mistakes';
     audioMessage = '';
     audioPlaying = false;
+    syncError = '';
+    retrySync = null;
     view = 'practice';
     render();
   }
@@ -677,7 +877,7 @@ function initApp() {
     const file = form.elements.file.files[0];
     messageNode.hidden = true;
     messageNode.textContent = '';
-    const saveWords = (result) => {
+    const saveWords = async (result) => {
       if (!result.valid) {
         const errorKey = result.error === 'Add at least one word, with one word on each line.'
           ? 'import.emptyWords'
@@ -686,15 +886,25 @@ function initApp() {
         messageNode.textContent = t(errorKey);
         return;
       }
-      queueFocus('#add-list');
-      persistence.saveWordList(SpellingBeastWordList.createWordList({
-        id: SpellingBeastWordList.createId(),
-        name: form.elements.name.value.trim(),
-        words: result.words,
-      }));
-      view = 'home';
-      message = t('home.savedMessage');
-      render();
+      const submitButton = form.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      submitButton.textContent = t('app.saving');
+      try {
+        await persistence.saveWordList(SpellingBeastWordList.createWordList({
+          id: SpellingBeastWordList.createId(),
+          name: form.elements.name.value.trim(),
+          words: result.words,
+        }));
+        queueFocus('#add-list');
+        view = 'home';
+        message = t('home.savedMessage');
+        render();
+      } catch (_error) {
+        submitButton.disabled = false;
+        submitButton.textContent = t('import.saveButton');
+        messageNode.hidden = false;
+        messageNode.textContent = t('app.saveError');
+      }
     };
 
     if (!file) {
@@ -723,8 +933,44 @@ function initApp() {
     return element.innerHTML;
   }
 
+  function renderLoading(error) {
+    app.innerHTML = `
+      <section class="card loading-screen" aria-live="polite">
+        <p class="loading-screen__message">${t(error ? 'app.loadError' : 'app.loading')}</p>
+        ${error ? `<button type="button" id="retry-load">${t('app.retry')}</button>` : '<span class="loading-line" aria-hidden="true"></span>'}
+      </section>`;
+    if (error) {
+      document.getElementById('retry-load').addEventListener('click', initializeRemote);
+    }
+  }
+
+  async function initializeRemote() {
+    renderLoading(null);
+    try {
+      if (apiClient) {
+        await apiClient.initialize();
+        const current = await apiClient.getSession();
+        if (!current?.user) {
+          authUser = null;
+          renderAuth();
+          return;
+        }
+        authUser = current.user;
+        setAuthenticatedHeader(true);
+      }
+      await persistence.initialize();
+      render();
+    } catch (_error) {
+      renderLoading(_error);
+    }
+  }
+
   applyLocalization();
-  render();
+  if (typeof persistence.initialize === 'function') {
+    initializeRemote();
+  } else {
+    render();
+  }
 }
 
 initApp();

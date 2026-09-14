@@ -1,0 +1,24 @@
+{
+  "name": "spellingbeast-v2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "esbuild client-src/neon-auth-entry.mjs --bundle --platform=browser --format=iife --outfile=code/neon-auth-sdk.js --minify",
+    "migrate": "node server/migrate.js",
+    "start": "node server/index.js",
+    "test": "npm run build && node --test server/*.test.js && for f in code/*.test.js; do node \"$f\" || exit 1; done"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@neondatabase/neon-js": "0.7.0-beta",
+    "express": "^5.1.0",
+    "jose": "^6.1.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
+  }
+}
