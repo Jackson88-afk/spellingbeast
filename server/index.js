@@ -20,8 +20,9 @@ const app = createApp({
     baseUrl: process.env.NEON_AUTH_BASE_URL,
     jwksUrl: process.env.NEON_AUTH_JWKS_URL,
   }),
-  publicConfig: { neonAuthUrl: process.env.NEON_AUTH_BASE_URL },
+  publicConfig: { neonAuthUrl: `${new URL(process.env.APP_ORIGIN).origin}/api/auth` },
   appOrigin: process.env.APP_ORIGIN,
+  authBaseUrl: process.env.NEON_AUTH_BASE_URL,
 });
 const port = Number(process.env.PORT) || 3000;
 const server = app.listen(port, '0.0.0.0', () => console.log(JSON.stringify({ level: 'info', event: 'listening', port })));

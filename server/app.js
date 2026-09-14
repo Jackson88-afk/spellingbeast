@@ -29,11 +29,51 @@ function createOriginGuard(appOrigin) {
   };
 }
 
-function createApp({ repository, verifyAuthorization, pool, publicConfig, appOrigin, logger = console }) {
+function firstPartyCookie(value) {
+  return value.replace(/;\s*Domain=[^;]+/ig, '');
+}
+
+function createAuthProxy({ authBaseUrl, appOrigin, authFetch = fetch }) {
+  const upstreamBase = String(authBaseUrl || '').replace(/\/$/, '');
+  const origin = appOrigin ? new URL(appOrigin).origin : null;
+  if (!upstreamBase || !origin) throw new Error('Auth proxy configuration is missing.');
+
+  return async (req, res, next) => {
+    try {
+      const suffix = req.originalUrl.slice('/api/auth'.length);
+      const headers = {
+        accept: req.get('accept') || 'application/json',
+        origin,
+      };
+      if (req.get('content-type')) headers['content-type'] = req.get('content-type');
+      if (req.get('cookie')) headers.cookie = req.get('cookie');
+      if (req.get('x-neon-client-info')) headers['x-neon-client-info'] = req.get('x-neon-client-info');
+      const options = { method: req.method, headers, redirect: 'manual' };
+      if (!['GET', 'HEAD'].includes(req.method) && req.body !== undefined) options.body = JSON.stringify(req.body);
+
+      const upstream = await authFetch(`${upstreamBase}${suffix}`, options);
+      for (const name of ['cache-control', 'content-type', 'location', 'set-auth-jwt', 'set-auth-token']) {
+        const value = upstream.headers.get(name);
+        if (value) res.set(name, value);
+      }
+      const cookies = typeof upstream.headers.getSetCookie === 'function'
+        ? upstream.headers.getSetCookie()
+        : [upstream.headers.get('set-cookie')].filter(Boolean);
+      for (const cookie of cookies) res.append('set-cookie', firstPartyCookie(cookie));
+      res.status(upstream.status).send(Buffer.from(await upstream.arrayBuffer()));
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+function createApp({ repository, verifyAuthorization, pool, publicConfig, appOrigin, authBaseUrl, authFetch, logger = console }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '256kb' }));
+
+  if (authBaseUrl) app.all('/api/auth/*path', createAuthProxy({ authBaseUrl, appOrigin, authFetch }));
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
   app.get('/ready', async (_req, res) => {
@@ -95,4 +135,4 @@ function createApp({ repository, verifyAuthorization, pool, publicConfig, appOri
   return app;
 }
 
-module.exports = { createApp, createOriginGuard, createRateLimiter };
+module.exports = { createApp, createAuthProxy, createOriginGuard, createRateLimiter, firstPartyCookie };

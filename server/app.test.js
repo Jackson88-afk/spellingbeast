@@ -33,6 +33,46 @@ test('health, readiness, and public config are available', async () => withServe
   assert.equal(config.neonAuthUrl, 'https://auth.example.test/neondb/auth');
 }));
 
+test('auth proxy keeps session cookies first-party', async () => {
+  const upstreamCalls = [];
+  const app = createApp({
+    repository: {},
+    pool: { query: async () => ({ rows: [] }) },
+    verifyAuthorization: async () => null,
+    publicConfig: { neonAuthUrl: '/api/auth' },
+    appOrigin: 'https://app.example.test',
+    authBaseUrl: 'https://auth.example.test/neondb/auth',
+    authFetch: async (url, options) => {
+      upstreamCalls.push({ url, options });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'set-cookie': '__Secure-neon-auth.session_token=secret; Domain=auth.example.test; Path=/; HttpOnly; Secure; SameSite=None',
+        },
+      });
+    },
+    logger: { error() {} },
+  });
+  const server = app.listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const response = await fetch(`${base}/api/auth/sign-in/email?return=1`, {
+      method: 'POST',
+      headers: { Origin: 'https://app.example.test', Cookie: '__Secure-neon-auth.session_token=incoming', 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'parent@example.com', password: 'password1' }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(upstreamCalls[0].url, 'https://auth.example.test/neondb/auth/sign-in/email?return=1');
+    assert.equal(upstreamCalls[0].options.headers.cookie, '__Secure-neon-auth.session_token=incoming');
+    assert.equal(upstreamCalls[0].options.headers.origin, 'https://app.example.test');
+    assert.deepEqual(JSON.parse(upstreamCalls[0].options.body), { email: 'parent@example.com', password: 'password1' });
+    assert.match(response.headers.get('set-cookie'), /session_token=secret/);
+    assert.doesNotMatch(response.headers.get('set-cookie'), /Domain=/i);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
 test('protected endpoints reject missing credentials', async () => withServer(async (base) => {
   const response = await fetch(`${base}/api/v2/state`);
   assert.equal(response.status, 401);
