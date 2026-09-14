@@ -3,38 +3,45 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#faf9f6" />
     <title>SpellingBeast</title>
     <meta
       name="description"
-      content="SpellingBeast v1 的最小前端脚手架，使用原生 HTML、CSS 和 JavaScript。"
+      content="A calm spelling practice app for kids. Build word lists, listen, and practice at your own pace."
     />
-    <link rel="stylesheet" href="./styles.css" />
-    <script defer src="./wordlist.js"></script>
-    <script defer src="./import.js"></script>
-    <script defer src="./persistence.js"></script>
-    <script defer src="./mistake.js"></script>
-    <script defer src="./answer.js"></script>
-    <script defer src="./session.js"></script>
-    <script defer src="./practice.js"></script>
-    <script defer src="./audio.js"></script>
-    <script defer src="./localization.js"></script>
-    <script defer src="./app.js"></script>
+    <link rel="stylesheet" href="./styles.css?v=20260907-5" />
+    <script defer src="./wordlist.js?v=20260907-5"></script>
+    <script defer src="./import.js?v=20260907-5"></script>
+    <script defer src="./persistence.js?v=20260907-5"></script>
+    <script defer src="./mistake.js?v=20260907-5"></script>
+    <script defer src="./answer.js?v=20260907-5"></script>
+    <script defer src="./session.js?v=20260907-5"></script>
+    <script defer src="./practice.js?v=20260907-5"></script>
+    <script defer src="./audio.js?v=20260907-5"></script>
+    <script defer src="./localization.js?v=20260913-1"></script>
+    <script defer src="./neon-auth-sdk.js?v=20260913-1"></script>
+    <script defer src="./api-client.js?v=20260913-1"></script>
+    <script defer src="./remote-persistence.js?v=20260913-1"></script>
+    <script defer src="./app.js?v=20260913-1"></script>
   </head>
   <body>
     <div class="app-shell">
-      <header class="hero card">
-        <p class="eyebrow">SpellingBeast</p>
-        <h1>拼写练习</h1>
-        <p class="lead">添加自己的单词，然后开始练习。</p>
-        <button type="button" id="language-toggle">语言：中文</button>
+      <header class="hero">
+        <a class="brand" href="/" aria-label="SpellingBeast home">
+          <svg class="bee-mark" viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M14 17c-5-1-7-5-5-8 4 0 7 3 8 7M26 17c5-1 7-5 5-8-4 0-7 3-8 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+            <ellipse cx="20" cy="22" rx="9" ry="11" fill="currentColor"/>
+            <path d="M12 19h16M11.5 24h17" stroke="#fffdf9" stroke-width="2.8"/>
+          </svg>
+          <h1 class="brand-mark">SpellingBeast</h1>
+        </a>
+        <div class="header-actions">
+          <button type="button" class="link-button" id="logout-button" hidden>Log Out</button>
+          <button type="button" id="language-toggle">语言：中文</button>
+        </div>
       </header>
 
       <main id="app" aria-live="polite"></main>
-
-      <footer class="footer">
-        <span>SpellingBeast</span>
-        <span id="footer-tagline">Local-first static scaffold</span>
-      </footer>
     </div>
   </body>
 </html>
