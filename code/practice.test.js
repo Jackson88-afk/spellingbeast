@@ -9,7 +9,7 @@ function createSampleSession() {
     words: ['ant', 'bear'],
   };
 
-  return createPracticeSession(wordList, 'All');
+  return createPracticeSession(wordList, 'All', () => 0.999999);
 }
 
 function testPracticeStateMachineFollowsNormalLifecycle() {
@@ -69,7 +69,7 @@ function testPracticeStateMachineAcceptsSpecifiedNormalizedCorrectAnswers() {
     name: 'Fruit',
     words: ['apple'],
   };
-  const practice = createPracticeStateMachine(createPracticeSession(session, 'All'));
+  const practice = createPracticeStateMachine(createPracticeSession(session, 'All', () => 0.999999));
 
   practice.start();
   practice.beginAnswer();
@@ -157,7 +157,7 @@ function testPracticeStateMachineKeepsWordAndCorrectSpellingForEachMissedWord() 
     name: 'Mixed List',
     words: ['ant', 'bear', 'cat'],
   };
-  const session = createPracticeSession(wordList, 'All');
+  const session = createPracticeSession(wordList, 'All', () => 0.999999);
   const practice = createPracticeStateMachine(session);
 
   practice.start();

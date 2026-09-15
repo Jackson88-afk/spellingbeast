@@ -36,6 +36,10 @@ function initApp() {
   let authMode = 'login';
   let authEmail = '';
   let authMessage = '';
+  let editingListId = null;
+  let deletingListId = null;
+  let deleteError = '';
+  let deletingList = false;
 
   function t(key, values) {
     return localization.translate(key, values);
@@ -330,6 +334,7 @@ function initApp() {
   }
 
   function renderHome(lists, mistakeSummary) {
+    const deletingListRecord = lists.find((list) => list.id === deletingListId);
     app.innerHTML = `
       <section class="card home-screen">
         <div class="section-heading home-heading">
@@ -346,13 +351,28 @@ function initApp() {
                 <strong>${escapeHtml(list.name)}</strong>
                 <span>${t('home.wordCount', { count: list.words.length })}</span>
               </div>
-              <button type="button" class="practice-list" data-list-id="${escapeHtml(list.id)}">${t('setup.startButton')}</button>
+              <div class="word-list-item__actions">
+                <button type="button" class="practice-list" data-list-id="${escapeHtml(list.id)}">${t('setup.startButton')}</button>
+                <button type="button" class="edit-list secondary-button" data-list-id="${escapeHtml(list.id)}">${t('list.edit')}</button>
+                <button type="button" class="delete-list danger-button" data-list-id="${escapeHtml(list.id)}">${t('list.delete')}</button>
+              </div>
             </li>`).join('')}</ul>` : `<p class="empty-state home-empty-state">${t('home.emptyState')}</p>`}
         </div>
         <p class="status home-message" id="home-message"${message ? '' : ' hidden'} role="status">${escapeHtml(message)}</p>
-      </section>`;
+      </section>
+      ${deletingListRecord ? `
+        <dialog class="confirm-dialog" id="delete-dialog" open aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description">
+          <h2 id="delete-dialog-title">${t('list.deleteTitle')}</h2>
+          <p id="delete-dialog-description">${t('list.deleteConfirm', { name: escapeHtml(deletingListRecord.name) })}</p>
+          ${deleteError ? `<p class="status status--error" role="alert">${t('list.deleteError')}</p>` : ''}
+          <div class="action-row confirm-dialog__actions">
+            <button type="button" class="link-button" id="cancel-delete"${deletingList ? ' disabled' : ''}>${t('list.cancel')}</button>
+            <button type="button" class="danger-button" id="confirm-delete"${deletingList ? ' disabled' : ''}>${deleteError ? t('app.retry') : t('list.confirmDelete')}</button>
+          </div>
+        </dialog>` : ''}`;
 
     document.getElementById('add-list').addEventListener('click', () => {
+      editingListId = null;
       queueFocus('#list-name');
       view = 'import';
       message = '';
@@ -362,11 +382,65 @@ function initApp() {
     document.querySelectorAll('.practice-list').forEach((button) => {
       button.addEventListener('click', () => openPracticeSetup(button.dataset.listId));
     });
+    document.querySelectorAll('.edit-list').forEach((button) => {
+      button.addEventListener('click', () => {
+        editingListId = button.dataset.listId;
+        message = '';
+        queueFocus('#list-name');
+        view = 'import';
+        render();
+      });
+    });
+    document.querySelectorAll('.delete-list').forEach((button) => {
+      button.addEventListener('click', () => {
+        deletingListId = button.dataset.listId;
+        deleteError = '';
+        render();
+        queueFocus('#cancel-delete');
+        focusPendingTarget();
+      });
+    });
+    const deleteDialog = document.getElementById('delete-dialog');
+    if (deleteDialog && typeof deleteDialog.showModal === 'function') {
+      deleteDialog.removeAttribute('open');
+      deleteDialog.showModal();
+      deleteDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        if (!deletingList) {
+          deletingListId = null;
+          deleteError = '';
+          render();
+        }
+      });
+    }
+    const cancelDelete = document.getElementById('cancel-delete');
+    if (cancelDelete) cancelDelete.addEventListener('click', () => {
+      deletingListId = null;
+      deleteError = '';
+      render();
+    });
+    const confirmDelete = document.getElementById('confirm-delete');
+    if (confirmDelete) confirmDelete.addEventListener('click', async () => {
+      deletingList = true;
+      deleteError = '';
+      render();
+      try {
+        await persistence.deleteWordList(deletingListId);
+        deletingListId = null;
+        message = t('list.deleted');
+      } catch (_error) {
+        deleteError = 'failed';
+      } finally {
+        deletingList = false;
+        render();
+      }
+    });
     focusPendingTarget();
   }
 
   function renderMistakes(mistakeSummary) {
-    const hasMistakes = mistakeSummary.count > 0;
+    const groups = SpellingBeastMistake.groupActiveMistakes(persistence.loadActiveMistakes());
+    const hasMistakes = groups.length > 0;
 
     app.innerHTML = `
       <section class="card mistakes-screen">
@@ -382,24 +456,20 @@ function initApp() {
         </div>
         <p class="status mistakes-screen__status" role="status">${t('mistakes.status', { count: mistakeSummary.count })}</p>
         ${hasMistakes ? `
-          <ul class="mistake-list">
-            ${mistakeSummary.words.map((mistake) => `
-              <li class="mistake-item">
-                <div class="mistake-item__copy">
-                  <div class="mistake-item__row">
-                    <span class="mistake-item__label">${t('practice.missedWord')}</span>
-                    <strong class="mistake-item__value">${escapeHtml(mistake.word)}</strong>
+          <div class="mistake-groups">
+            ${groups.map((group) => `
+              <section class="mistake-group" aria-labelledby="mistake-group-${escapeHtml(group.wordListId)}">
+                <div class="mistake-group__heading">
+                  <div>
+                    <h3 id="mistake-group-${escapeHtml(group.wordListId)}">${escapeHtml(group.wordListName)}</h3>
+                    <p>${t('mistakes.groupCount', { count: group.count })}</p>
                   </div>
-                  <div class="mistake-item__row">
-                    <span class="mistake-item__label">${t('practice.correctSpelling')}</span>
-                    <strong class="mistake-item__value">${escapeHtml(mistake.word)}</strong>
-                  </div>
+                  <button type="button" class="practice-mistakes-group" data-list-id="${escapeHtml(group.wordListId)}">${t('mistakes.practiceGroup')}</button>
                 </div>
-                ${mistake.wordListName ? `<span class="mistake-item__meta">${t('mistakes.fromList')} ${escapeHtml(mistake.wordListName)}</span>` : ''}
-              </li>`).join('')}
-          </ul>
-          <div class="action-row action-row--spaced mistakes-screen__actions">
-            <button type="button" id="practice-mistakes">${t('mistakes.practiceButton')}</button>
+                <ul class="mistake-list">
+                  ${group.mistakes.map((mistake) => `<li class="mistake-item"><strong class="mistake-item__value">${escapeHtml(mistake.word)}</strong></li>`).join('')}
+                </ul>
+              </section>`).join('')}
           </div>
           ${message ? `<p class="status" id="mistakes-message" role="status">${escapeHtml(message)}</p>` : ''}
         ` : `
@@ -422,32 +492,38 @@ function initApp() {
       view = 'home';
       render();
     });
-
-    if (hasMistakes) {
-      document.getElementById('practice-mistakes').addEventListener('click', () => {
-        startPracticeMistakes();
-      });
-    }
+    document.querySelectorAll('.practice-mistakes-group').forEach((button) => {
+      button.addEventListener('click', () => startPracticeMistakes(button.dataset.listId));
+    });
     focusPendingTarget();
   }
 
   function renderImport() {
+    const editingList = editingListId
+      ? persistence.loadWordLists().find((list) => list.id === editingListId)
+      : null;
+    if (editingListId && !editingList) {
+      editingListId = null;
+      view = 'home';
+      render();
+      return;
+    }
     app.innerHTML = `
       <section class="card import-screen">
         <div class="import-header">
-          <h2>${t('import.title')}</h2>
-          <p class="lead">${t('import.headerLead')}</p>
+          <h2>${t(editingList ? 'list.editTitle' : 'import.title')}</h2>
+          <p class="lead">${t(editingList ? 'list.editLead' : 'import.headerLead')}</p>
         </div>
         <form id="import-form" class="import-form">
           <div class="import-field">
             <label for="list-name">${t('import.nameLabel')}</label>
             <p class="import-field__hint" id="list-name-hint">${t('import.nameHint')}</p>
-            <input id="list-name" name="name" required maxlength="80" placeholder="${t('import.namePlaceholder')}" aria-describedby="list-name-hint import-message" />
+            <input id="list-name" name="name" required maxlength="80" value="${editingList ? escapeHtml(editingList.name) : ''}" placeholder="${t('import.namePlaceholder')}" aria-describedby="list-name-hint import-message" />
           </div>
           <div class="import-field">
             <label for="words">${t('import.wordsLabel')}</label>
             <p class="import-field__hint" id="words-hint">${t('import.wordsHint')}</p>
-            <textarea id="words" name="words" rows="10" placeholder="${t('import.wordsPlaceholder')}" aria-describedby="words-hint import-message"></textarea>
+            <textarea id="words" name="words" rows="10" placeholder="${t('import.wordsPlaceholder')}" aria-describedby="words-hint import-message">${editingList ? escapeHtml(editingList.words.join('\n')) : ''}</textarea>
           </div>
           <div class="import-upload">
             <div class="import-upload__header">
@@ -459,12 +535,13 @@ function initApp() {
           <p class="status import-message" id="import-message" role="alert" hidden></p>
           <div class="action-row action-row--spaced import-actions">
             <button type="button" class="link-button" id="back-home">${t('import.cancelButton')}</button>
-            <button type="submit">${t('import.saveButton')}</button>
+            <button type="submit">${t(editingList ? 'list.saveChanges' : 'import.saveButton')}</button>
           </div>
         </form>
       </section>`;
 
     document.getElementById('back-home').addEventListener('click', () => {
+      editingListId = null;
       queueFocus('#add-list');
       view = 'home';
       render();
@@ -584,7 +661,7 @@ function initApp() {
       if (showPracticeMistakesAction) {
         document.getElementById('practice-mistakes-summary').addEventListener('click', () => {
           queueFocus('#practice-mistakes');
-          startPracticeMistakes();
+          startPracticeMistakes(practiceMode === 'mistakes' ? practiceList.wordListId : practiceList.id);
         });
       }
       if (showMistakesScreenAction) {
@@ -631,7 +708,7 @@ function initApp() {
           </div>
         </div>
         <div class="practice-question">
-          <h2>${escapeHtml(practiceMode === 'mistakes' ? t('mistakes.practiceSessionName') : practiceList.name)}</h2>
+          <h2>${escapeHtml(practiceMode === 'mistakes' ? `${t('mistakes.practiceSessionName')}: ${practiceList.wordListName}` : practiceList.name)}</h2>
           <p class="practice-prompt">${t('practice.prompt')}</p>
         </div>
         <div class="practice-panel">
@@ -665,12 +742,13 @@ function initApp() {
       </section>`;
 
     document.getElementById('practice-back').addEventListener('click', () => {
+      const wasMistakePractice = practiceMode === 'mistakes';
       practice = null;
       practiceList = null;
       practiceMode = 'normal';
       audioMessage = '';
-      queueFocus('#add-list');
-      view = 'home';
+      queueFocus(wasMistakePractice ? '#back-home' : '#add-list');
+      view = wasMistakePractice ? 'mistakes' : 'home';
       render();
     });
 
@@ -699,7 +777,7 @@ function initApp() {
         if (activeMistake) {
           persistenceAction = submitted.feedback.isCorrect
             ? () => persistence.deleteActiveMistake(activeMistake)
-            : () => persistence.saveActiveMistake(activeMistake);
+            : null;
         }
       }
       syncError = '';
@@ -833,9 +911,10 @@ function initApp() {
     render();
   }
 
-  function startPracticeMistakes() {
+  function startPracticeMistakes(wordListId) {
     const activeMistakes = persistence.loadActiveMistakes();
-    if (!activeMistakes.length) {
+    const selectedMistakes = activeMistakes.filter((mistake) => mistake.wordListId === wordListId);
+    if (!selectedMistakes.length) {
       view = 'mistakes';
       practice = null;
       practiceList = null;
@@ -847,7 +926,7 @@ function initApp() {
       return;
     }
 
-    const session = SpellingBeastMistake.createPracticeMistakesSession(activeMistakes);
+    const session = SpellingBeastMistake.createPracticeMistakesSession(activeMistakes, wordListId);
     practice = SpellingBeastPractice.createPracticeStateMachine(session);
     practice.start();
     practiceList = session;
@@ -890,18 +969,24 @@ function initApp() {
       submitButton.disabled = true;
       submitButton.textContent = t('app.saving');
       try {
+        const existing = editingListId
+          ? persistence.loadWordLists().find((list) => list.id === editingListId)
+          : null;
         await persistence.saveWordList(SpellingBeastWordList.createWordList({
-          id: SpellingBeastWordList.createId(),
+          id: existing?.id || SpellingBeastWordList.createId(),
           name: form.elements.name.value.trim(),
           words: result.words,
+          createdAt: existing?.createdAt,
+          updatedAt: new Date().toISOString(),
         }));
+        editingListId = null;
         queueFocus('#add-list');
         view = 'home';
         message = t('home.savedMessage');
         render();
       } catch (_error) {
         submitButton.disabled = false;
-        submitButton.textContent = t('import.saveButton');
+        submitButton.textContent = t('app.retry');
         messageNode.hidden = false;
         messageNode.textContent = t('app.saveError');
       }

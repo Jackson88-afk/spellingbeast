@@ -9,6 +9,9 @@ assert.strictEqual(localization.translate('en', 'home.wordCount', { count: 3 }),
 assert.strictEqual(localization.translate('en', 'auth.loginTitle'), 'Log In');
 assert.strictEqual(localization.translate('zh', 'auth.verifyTitle'), '验证邮箱');
 assert.strictEqual(localization.translate('zh', 'auth.resetFailed'), '密码重置失败，请重新获取验证码。');
+assert.strictEqual(localization.translate('en', 'list.deleteConfirm', { name: 'Animals' }), 'Delete “Animals” and its mistakes? This cannot be undone.');
+assert.strictEqual(localization.translate('zh', 'list.saveChanges'), '保存更改');
+assert.strictEqual(localization.translate('en', 'mistakes.groupCount', { count: 3 }), '3 active mistakes');
 
 const state = localization.createLocalization();
 assert.strictEqual(state.getLocale(), 'en');

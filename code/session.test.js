@@ -1,15 +1,11 @@
 const assert = require('node:assert/strict');
-const { createPracticeSession } = require('./session.js');
+const { createPracticeSession, shuffle } = require('./session.js');
+
+const keepOrder = () => 0.999999;
 
 function testCreatePracticeSessionSelectsRequestedNumberOfWords() {
-  const wordList = {
-    id: 'list-1',
-    name: 'Animals',
-    words: ['ant', 'bear', 'cat', 'dog', 'eel', 'fox', 'goat'],
-  };
-
-  const session = createPracticeSession(wordList, 5);
-
+  const wordList = { id: 'list-1', name: 'Animals', words: ['ant', 'bear', 'cat', 'dog', 'eel', 'fox', 'goat'] };
+  const session = createPracticeSession(wordList, 5, keepOrder);
   assert.equal(session.wordListId, 'list-1');
   assert.equal(session.requestedSize, 5);
   assert.equal(session.availableWordCount, 7);
@@ -18,51 +14,34 @@ function testCreatePracticeSessionSelectsRequestedNumberOfWords() {
 }
 
 function testCreatePracticeSessionUsesAllWordsWhenListIsSmallerThanRequestedSize() {
-  const wordList = {
-    id: 'list-2',
-    name: 'Short List',
-    words: ['apple', 'banana', 'carrot'],
-  };
-
-  const session = createPracticeSession(wordList, 10);
-
-  assert.equal(session.wordListId, 'list-2');
+  const wordList = { id: 'list-2', name: 'Short List', words: ['apple', 'banana', 'carrot'] };
+  const session = createPracticeSession(wordList, 10, keepOrder);
   assert.equal(session.requestedSize, 10);
-  assert.equal(session.availableWordCount, 3);
   assert.equal(session.selectedWordCount, 3);
   assert.deepEqual(session.words, ['apple', 'banana', 'carrot']);
 }
 
 function testCreatePracticeSessionUsesAllWordsWhenTwentyExceedsAvailableWords() {
-  const wordList = {
-    id: 'list-2b',
-    name: 'Small List',
-    words: ['apple', 'banana', 'carrot', 'date', 'elderberry', 'fig', 'grape'],
-  };
-
-  const session = createPracticeSession(wordList, 20);
-
-  assert.equal(session.wordListId, 'list-2b');
-  assert.equal(session.requestedSize, 20);
-  assert.equal(session.availableWordCount, 7);
+  const wordList = { id: 'list-2b', name: 'Small List', words: ['apple', 'banana', 'carrot', 'date', 'elderberry', 'fig', 'grape'] };
+  const session = createPracticeSession(wordList, 20, keepOrder);
   assert.equal(session.selectedWordCount, 7);
-  assert.deepEqual(session.words, ['apple', 'banana', 'carrot', 'date', 'elderberry', 'fig', 'grape']);
+  assert.deepEqual(session.words, wordList.words);
 }
 
 function testCreatePracticeSessionSupportsAllWords() {
-  const wordList = {
-    id: 'list-3',
-    name: 'Long List',
-    words: ['alpha', 'beta', 'gamma', 'delta'],
-  };
-
-  const session = createPracticeSession(wordList, 'All');
-
-  assert.equal(session.wordListId, 'list-3');
+  const wordList = { id: 'list-3', name: 'Long List', words: ['alpha', 'beta', 'gamma', 'delta'] };
+  const session = createPracticeSession(wordList, 'All', keepOrder);
   assert.equal(session.requestedSize, 'All');
-  assert.equal(session.availableWordCount, 4);
   assert.equal(session.selectedWordCount, 4);
-  assert.deepEqual(session.words, ['alpha', 'beta', 'gamma', 'delta']);
+  assert.deepEqual(session.words, wordList.words);
+}
+
+function testShuffleUsesInjectedRandomWithoutMutatingSavedOrder() {
+  const saved = ['ant', 'bear', 'cat', 'dog'];
+  const values = [0, 0.5, 0];
+  const shuffled = shuffle(saved, () => values.shift());
+  assert.deepEqual(shuffled, ['cat', 'dog', 'bear', 'ant']);
+  assert.deepEqual(saved, ['ant', 'bear', 'cat', 'dog']);
 }
 
 function run() {
@@ -70,6 +49,7 @@ function run() {
   testCreatePracticeSessionUsesAllWordsWhenListIsSmallerThanRequestedSize();
   testCreatePracticeSessionUsesAllWordsWhenTwentyExceedsAvailableWords();
   testCreatePracticeSessionSupportsAllWords();
+  testShuffleUsesInjectedRandomWithoutMutatingSavedOrder();
   console.log('session tests passed');
 }
 

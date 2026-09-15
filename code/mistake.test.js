@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { createPersistence } = require('./persistence.js');
-const { applyPracticeMistakeSubmission, createMistake, createPracticeMistakesSession, resolveMistakeId, summarizeActiveMistakes } = require('./mistake.js');
+const { applyPracticeMistakeSubmission, createMistake, createPracticeMistakesSession, groupActiveMistakes, resolveMistakeId, summarizeActiveMistakes } = require('./mistake.js');
 
 function createMemoryStorage() {
   const store = new Map();
@@ -48,8 +48,8 @@ function testSummarizeActiveMistakesReturnsCountWordsAndEmptyState() {
 
   assert.equal(summary.count, 2);
   assert.deepEqual(summary.words, [
-    { id: 'list-1::ant', word: 'ant', wordListName: 'Animals' },
-    { id: 'list-2::blue', word: 'blue', wordListName: 'Colors' },
+    { id: 'list-1::ant', wordListId: 'list-1', word: 'ant', wordListName: 'Animals' },
+    { id: 'list-2::blue', wordListId: 'list-2', word: 'blue', wordListName: 'Colors' },
   ]);
   assert.equal(summary.emptyState, 'All Caught Up! 现在没有需要额外练习的错题。做得很棒，继续保持！');
 }
@@ -62,31 +62,32 @@ function testSummarizeActiveMistakesSkipsMalformedEntries() {
   ]);
 
   assert.equal(summary.count, 1);
-  assert.deepEqual(summary.words, [{ id: 'list-1::cat', word: 'cat', wordListName: '' }]);
+  assert.deepEqual(summary.words, [{ id: 'list-1::cat', wordListId: 'list-1', word: 'cat', wordListName: '' }]);
 }
 
-function testCreatePracticeMistakesSessionUsesActiveMistakeWords() {
+function testCreatePracticeMistakesSessionUsesOnlySelectedListAndShuffles() {
   const session = createPracticeMistakesSession([
     { wordListId: 'list-1', wordListName: 'Animals', word: ' ant ' },
+    { wordListId: 'list-1', wordListName: 'Animals', word: ' cat ' },
     { wordListId: 'list-2', wordListName: 'Colors', word: ' blue ' },
-  ]);
+  ], 'list-1', () => 0);
 
   assert.equal(session.id, 'mistakes');
   assert.equal(session.name, '错题练习');
-  assert.equal(session.wordListId, 'mistakes');
-  assert.equal(session.wordListName, '错题练习');
+  assert.equal(session.wordListId, 'list-1');
+  assert.equal(session.wordListName, 'Animals');
   assert.equal(session.requestedSize, 'All');
   assert.equal(session.availableWordCount, 2);
   assert.equal(session.selectedWordCount, 2);
   assert.deepEqual(session.mistakes, [
-    { id: 'list-1::ant', word: 'ant', wordListName: 'Animals' },
-    { id: 'list-2::blue', word: 'blue', wordListName: 'Colors' },
+    { id: 'list-1::cat', wordListId: 'list-1', word: 'cat', wordListName: 'Animals' },
+    { id: 'list-1::ant', wordListId: 'list-1', word: 'ant', wordListName: 'Animals' },
   ]);
-  assert.deepEqual(session.words, ['ant', 'blue']);
+  assert.deepEqual(session.words, ['cat', 'ant']);
 }
 
 function testCreatePracticeMistakesSessionHandlesEmptyMistakeList() {
-  const session = createPracticeMistakesSession([]);
+  const session = createPracticeMistakesSession([], 'list-1');
 
   assert.equal(session.availableWordCount, 0);
   assert.equal(session.selectedWordCount, 0);
@@ -109,10 +110,20 @@ function testApplyPracticeMistakeSubmissionRetainsIncorrectMistakes() {
     persistence,
   });
 
-  assert.equal(result, 'save');
-  assert.deepEqual(persistence.loadActiveMistakes(), [activeMistake]);
-  assert.equal(persistence.loadActiveMistakes()[0].wordListId, 'list-1');
-  assert.equal(persistence.loadActiveMistakes()[0].wordListName, 'Animals');
+  assert.equal(result, 'keep');
+  assert.deepEqual(persistence.loadActiveMistakes(), []);
+}
+
+function testGroupsMistakesByStableWordListId() {
+  const groups = groupActiveMistakes([
+    { wordListId: 'list-1', wordListName: 'Renamed Animals', word: 'ant' },
+    { wordListId: 'list-2', wordListName: 'Colors', word: 'blue' },
+    { wordListId: 'list-1', wordListName: 'Renamed Animals', word: 'cat' },
+  ]);
+  assert.deepEqual(groups.map((group) => ({ wordListId: group.wordListId, wordListName: group.wordListName, count: group.count, words: group.mistakes.map((item) => item.word) })), [
+    { wordListId: 'list-1', wordListName: 'Renamed Animals', count: 2, words: ['ant', 'cat'] },
+    { wordListId: 'list-2', wordListName: 'Colors', count: 1, words: ['blue'] },
+  ]);
 }
 
 function testApplyPracticeMistakeSubmissionRemovesCorrectMistakes() {
@@ -142,10 +153,11 @@ function run() {
   testResolveMistakeIdSupportsExistingId();
   testSummarizeActiveMistakesReturnsCountWordsAndEmptyState();
   testSummarizeActiveMistakesSkipsMalformedEntries();
-  testCreatePracticeMistakesSessionUsesActiveMistakeWords();
+  testCreatePracticeMistakesSessionUsesOnlySelectedListAndShuffles();
   testCreatePracticeMistakesSessionHandlesEmptyMistakeList();
   testApplyPracticeMistakeSubmissionRetainsIncorrectMistakes();
   testApplyPracticeMistakeSubmissionRemovesCorrectMistakes();
+  testGroupsMistakesByStableWordListId();
   console.log('mistake tests passed');
 }
 

@@ -40,3 +40,38 @@ test('word-list writes roll back atomically when a word insert fails', async () 
   assert.equal(events.includes('commit'), false);
   assert.equal(events.at(-1), 'release');
 });
+
+test('editing a list reconciles removed mistakes inside the same transaction', async () => {
+  const calls = [];
+  const client = {
+    async query(sql, params) {
+      calls.push([sql, params]);
+      if (sql.startsWith('select owner_id')) return { rows: [{ owner_id: 'owner-1' }] };
+      return { rows: [] };
+    },
+    release() {},
+  };
+  const { createRepository } = require('./repository');
+  const repository = createRepository({ connect: async () => client });
+  await repository.upsertWordList('owner-1', { id: 'list-1', name: 'Renamed', words: ['Cat', 'DOG'] });
+  const reconcile = calls.find(([sql]) => sql.startsWith('delete from active_mistakes'));
+  assert.deepEqual(reconcile[1], ['owner-1', 'list-1', ['cat', 'dog']]);
+  assert.ok(calls.some(([sql]) => sql === 'commit'));
+});
+
+test('delete is owner scoped, transactional, and reports not found', async () => {
+  const calls = [];
+  const client = {
+    async query(sql, params) {
+      calls.push([sql, params]);
+      if (sql.startsWith('delete from word_lists')) return { rows: [] };
+      return { rows: [] };
+    },
+    release() {},
+  };
+  const { createRepository } = require('./repository');
+  const repository = createRepository({ connect: async () => client });
+  await assert.rejects(() => repository.deleteWordList('owner-1', 'list-1'), { code: 'not_found', status: 404 });
+  assert.deepEqual(calls.find(([sql]) => sql.startsWith('delete from word_lists'))[1], ['list-1', 'owner-1']);
+  assert.ok(calls.some(([sql]) => sql === 'rollback'));
+});

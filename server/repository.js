@@ -111,6 +111,8 @@ function createRepository(pool) {
         const entry = list.words[position];
         await client.query('insert into word_list_words (word_list_id, position, word, normalized_word) values ($1,$2,$3,$4)', [list.id, position, entry.word, entry.normalizedWord]);
       }
+      await client.query('delete from active_mistakes where owner_id = $1 and word_list_id = $2 and not (normalized_word = any($3::text[]))',
+        [ownerId, list.id, list.words.map((entry) => entry.normalizedWord)]);
       if (ownsClient) await client.query('commit');
       return { id: list.id, name: list.name, words: list.words.map((entry) => entry.word), createdAt: list.createdAt, updatedAt: list.updatedAt };
     } catch (error) {
@@ -118,6 +120,21 @@ function createRepository(pool) {
       throw error;
     } finally {
       if (ownsClient) client.release();
+    }
+  }
+
+  async function deleteWordList(ownerId, id) {
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      const result = await client.query('delete from word_lists where id = $1 and owner_id = $2 returning id', [id, ownerId]);
+      if (!result.rows.length) throw Object.assign(new Error('Resource not found.'), { code: 'not_found', status: 404 });
+      await client.query('commit');
+    } catch (error) {
+      await client.query('rollback');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -152,7 +169,7 @@ function createRepository(pool) {
     }
   }
 
-  return { deleteMistake, loadState, migrate, upsertMistake, upsertWordList };
+  return { deleteMistake, deleteWordList, loadState, migrate, upsertMistake, upsertWordList };
 }
 
 module.exports = { createRepository, normalizeMistake, normalizeWordList, normalizeWords };

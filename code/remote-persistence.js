@@ -33,6 +33,10 @@
       const saved = payload.wordList;
       const index = wordLists.findIndex((entry) => entry.id === saved.id);
       wordLists = index === -1 ? wordLists.concat(saved) : wordLists.map((entry, i) => (i === index ? saved : entry));
+      const savedWords = new Set(saved.words.map((word) => String(word).trim().toLocaleLowerCase('en-US')));
+      activeMistakes = activeMistakes
+        .filter((mistake) => mistake.wordListId !== saved.id || savedWords.has(String(mistake.word).trim().toLocaleLowerCase('en-US')))
+        .map((mistake) => mistake.wordListId === saved.id ? { ...mistake, wordListName: saved.name } : mistake);
       return saved;
     }
     async function updateWordList(wordListId, updates) {
@@ -40,6 +44,11 @@
       if (!current) throw new Error(`Word list not found: ${wordListId}`);
       const patch = typeof updates === 'function' ? updates(current) : updates;
       return saveWordList({ ...current, ...patch, id: current.id });
+    }
+    async function deleteWordList(id) {
+      await apiClient.request(`/word-lists/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      wordLists = wordLists.filter((entry) => entry.id !== id);
+      activeMistakes = activeMistakes.filter((entry) => entry.wordListId !== id);
     }
     async function saveActiveMistake(mistake) {
       const payload = await apiClient.request('/mistakes', { method: 'POST', body: JSON.stringify(mistake) });
@@ -53,7 +62,7 @@
       await apiClient.request(`/mistakes/${encodeURIComponent(id)}`, { method: 'DELETE' });
       activeMistakes = activeMistakes.filter((entry) => entry.id !== id);
     }
-    return { initialize, loadActiveMistakes, loadWordLists, saveActiveMistake, saveWordList, updateWordList, deleteActiveMistake };
+    return { initialize, loadActiveMistakes, loadWordLists, saveActiveMistake, saveWordList, updateWordList, deleteWordList, deleteActiveMistake };
   }
 
   return { createRemotePersistence, MIGRATION_KEY };

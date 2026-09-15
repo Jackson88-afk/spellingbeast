@@ -108,6 +108,12 @@ function createApp({ repository, verifyAuthorization, pool, publicConfig, appOri
       res.json({ wordList: saved });
     } catch (error) { next(error); }
   });
+  app.delete('/api/v2/word-lists/:id', writeLimiter, async (req, res, next) => {
+    try {
+      await repository.deleteWordList(req.user.id, req.params.id);
+      res.status(204).end();
+    } catch (error) { next(error); }
+  });
   app.post('/api/v2/mistakes', writeLimiter, async (req, res, next) => {
     try { res.json({ mistake: await repository.upsertMistake(req.user.id, req.body) }); } catch (error) { next(error); }
   });

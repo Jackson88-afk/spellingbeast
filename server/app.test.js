@@ -11,6 +11,7 @@ async function withServer(run) {
     async upsertWordList(owner, body) { calls.push(['list', owner, body]); return body; },
     async upsertMistake(owner, body) { calls.push(['mistake', owner, body]); return { ...body, id: body.id || `${body.wordListId}::${body.word.toLowerCase()}` }; },
     async deleteMistake(owner, id) { calls.push(['delete', owner, id]); },
+    async deleteWordList(owner, id) { calls.push(['delete-list', owner, id]); },
     async migrate(owner, body) { calls.push(['migrate', owner, body]); return body; },
   };
   const app = createApp({
@@ -100,6 +101,14 @@ test('write endpoints reject a non-matching Origin', async () => withServer(asyn
   assert.equal(response.status, 403);
   assert.equal((await response.json()).error.code, 'invalid_origin');
   assert.equal(calls.length, 0);
+}));
+
+test('word-list deletion is authenticated and owner scoped', async () => withServer(async (base, calls) => {
+  const response = await fetch(`${base}/api/v2/word-lists/list-1`, {
+    method: 'DELETE', headers: { Authorization: 'Bearer alpha', Origin: 'https://app.example.test' },
+  });
+  assert.equal(response.status, 204);
+  assert.deepEqual(calls, [['delete-list', 'owner-alpha', 'list-1']]);
 }));
 
 test('ready fails when database is unavailable', async () => {
