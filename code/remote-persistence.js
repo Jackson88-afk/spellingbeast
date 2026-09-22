@@ -7,10 +7,12 @@
   function createRemotePersistence({ apiClient, localPersistence, storage = globalThis.localStorage }) {
     let wordLists = [];
     let activeMistakes = [];
+    let levelProgress = [];
 
     function replaceState(state) {
       wordLists = Array.isArray(state?.wordLists) ? state.wordLists : [];
       activeMistakes = Array.isArray(state?.activeMistakes) ? state.activeMistakes : [];
+      levelProgress = Array.isArray(state?.levelProgress) ? state.levelProgress : [];
     }
     async function initialize() {
       await apiClient.initialize();
@@ -24,10 +26,11 @@
         }));
         storage.setItem(MIGRATION_KEY, 'complete');
       }
-      return { wordLists, activeMistakes };
+      return { wordLists, activeMistakes, levelProgress };
     }
     function loadWordLists() { return wordLists.slice(); }
     function loadActiveMistakes() { return activeMistakes.slice(); }
+    function loadLevelProgress() { return levelProgress.slice(); }
     async function saveWordList(wordList) {
       const payload = await apiClient.request(`/word-lists/${encodeURIComponent(wordList.id)}`, { method: 'PUT', body: JSON.stringify(wordList) });
       const saved = payload.wordList;
@@ -37,6 +40,7 @@
       activeMistakes = activeMistakes
         .filter((mistake) => mistake.wordListId !== saved.id || savedWords.has(String(mistake.word).trim().toLocaleLowerCase('en-US')))
         .map((mistake) => mistake.wordListId === saved.id ? { ...mistake, wordListName: saved.name } : mistake);
+      if (payload.progressReset) levelProgress = levelProgress.filter((entry) => entry.wordListId !== saved.id);
       return saved;
     }
     async function updateWordList(wordListId, updates) {
@@ -49,6 +53,7 @@
       await apiClient.request(`/word-lists/${encodeURIComponent(id)}`, { method: 'DELETE' });
       wordLists = wordLists.filter((entry) => entry.id !== id);
       activeMistakes = activeMistakes.filter((entry) => entry.wordListId !== id);
+      levelProgress = levelProgress.filter((entry) => entry.wordListId !== id);
     }
     async function saveActiveMistake(mistake) {
       const payload = await apiClient.request('/mistakes', { method: 'POST', body: JSON.stringify(mistake) });
@@ -62,7 +67,17 @@
       await apiClient.request(`/mistakes/${encodeURIComponent(id)}`, { method: 'DELETE' });
       activeMistakes = activeMistakes.filter((entry) => entry.id !== id);
     }
-    return { initialize, loadActiveMistakes, loadWordLists, saveActiveMistake, saveWordList, updateWordList, deleteWordList, deleteActiveMistake };
+    async function saveLevelProgress(progress) {
+      const payload = await apiClient.request(`/word-lists/${encodeURIComponent(progress.wordListId)}/levels/${encodeURIComponent(progress.levelNumber)}/progress`, {
+        method: 'PUT',
+        body: JSON.stringify({ bestStars: progress.bestStars }),
+      });
+      const saved = payload.levelProgress;
+      const index = levelProgress.findIndex((entry) => entry.wordListId === saved.wordListId && entry.levelNumber === saved.levelNumber);
+      levelProgress = index === -1 ? levelProgress.concat(saved) : levelProgress.map((entry, i) => i === index ? saved : entry);
+      return saved;
+    }
+    return { initialize, loadActiveMistakes, loadLevelProgress, loadWordLists, saveActiveMistake, saveLevelProgress, saveWordList, updateWordList, deleteWordList, deleteActiveMistake };
   }
 
   return { createRemotePersistence, MIGRATION_KEY };

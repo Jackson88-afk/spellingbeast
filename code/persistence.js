@@ -7,12 +7,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   const WORD_LISTS_KEY = 'word-lists';
   const ACTIVE_MISTAKES_KEY = 'active-mistakes';
+  const LEVEL_PROGRESS_KEY = 'level-progress';
 
   function createPersistence(options = {}) {
     const storage = options.storage || getBrowserStorage();
     const namespace = normalizeNamespace(options.namespace || 'spellingbeast');
     const wordListsKey = `${namespace}:${WORD_LISTS_KEY}`;
     const activeMistakesKey = `${namespace}:${ACTIVE_MISTAKES_KEY}`;
+    const levelProgressKey = `${namespace}:${LEVEL_PROGRESS_KEY}`;
 
     return {
       loadWordLists() {
@@ -22,10 +24,15 @@
         const lists = readArray(storage, wordListsKey);
         const normalized = normalizeWordList(wordList, lists);
         const index = lists.findIndex((entry) => entry.id === normalized.id);
+        const existing = index === -1 ? null : lists[index];
         const next = index === -1
           ? lists.concat(normalized)
           : lists.map((entry, currentIndex) => (currentIndex === index ? normalized : entry));
         writeArray(storage, wordListsKey, next);
+        const progressReset = Boolean(existing && !sameNormalizedWords(existing.words, normalized.words));
+        if (progressReset) {
+          writeArray(storage, levelProgressKey, readArray(storage, levelProgressKey).filter((entry) => entry.wordListId !== normalized.id));
+        }
         return normalized;
       },
       updateWordList(wordListId, updates) {
@@ -40,7 +47,15 @@
         const nextWordList = normalizeWordList({ ...current, ...patch, id: current.id }, lists, current);
         const next = lists.map((entry, currentIndex) => (currentIndex === index ? nextWordList : entry));
         writeArray(storage, wordListsKey, next);
+        if (!sameNormalizedWords(current.words, nextWordList.words)) {
+          writeArray(storage, levelProgressKey, readArray(storage, levelProgressKey).filter((entry) => entry.wordListId !== wordListId));
+        }
         return nextWordList;
+      },
+      deleteWordList(wordListId) {
+        writeArray(storage, wordListsKey, readArray(storage, wordListsKey).filter((entry) => entry.id !== wordListId));
+        writeArray(storage, activeMistakesKey, readArray(storage, activeMistakesKey).filter((entry) => entry.wordListId !== wordListId));
+        writeArray(storage, levelProgressKey, readArray(storage, levelProgressKey).filter((entry) => entry.wordListId !== wordListId));
       },
       loadActiveMistakes() {
         return readArray(storage, activeMistakesKey);
@@ -60,6 +75,31 @@
         const mistakes = readArray(storage, activeMistakesKey);
         const next = mistakes.filter((entry) => entry.id !== key);
         writeArray(storage, activeMistakesKey, next);
+      },
+      loadLevelProgress() {
+        return readArray(storage, levelProgressKey);
+      },
+      saveLevelProgress(progress) {
+        const wordListId = String(progress?.wordListId || '');
+        const levelNumber = Number(progress?.levelNumber);
+        const bestStars = Number(progress?.bestStars);
+        const list = readArray(storage, wordListsKey).find((entry) => entry.id === wordListId);
+        const maxLevel = list ? Math.ceil(list.words.length / 5) : 0;
+        if (!wordListId || !Number.isInteger(levelNumber) || levelNumber < 1 || levelNumber > maxLevel
+          || !Number.isInteger(bestStars) || bestStars < 0 || bestStars > 3) {
+          throw new Error('Adventure progress is invalid.');
+        }
+        const entries = readArray(storage, levelProgressKey);
+        const index = entries.findIndex((entry) => entry.wordListId === wordListId && entry.levelNumber === levelNumber);
+        const saved = {
+          wordListId,
+          levelNumber,
+          bestStars: Math.max(bestStars, index === -1 ? 0 : entries[index].bestStars),
+          updatedAt: new Date().toISOString(),
+        };
+        const next = index === -1 ? entries.concat(saved) : entries.map((entry, i) => i === index ? saved : entry);
+        writeArray(storage, levelProgressKey, next);
+        return saved;
       },
     };
   }
@@ -154,6 +194,13 @@
       throw new Error('Mistake id requires id or wordListId + word.');
     }
     return `${String(mistake.wordListId)}::${String(mistake.word).trim().toLowerCase()}`;
+  }
+
+  function sameNormalizedWords(left, right) {
+    const normalize = (values) => (Array.isArray(values) ? values : []).map((word) => String(word).trim().toLocaleLowerCase('en-US'));
+    const a = normalize(left);
+    const b = normalize(right);
+    return a.length === b.length && a.every((word, index) => word === b[index]);
   }
 
   return {

@@ -7,11 +7,18 @@ const { createApp } = require('./app');
 async function withServer(run) {
   const calls = [];
   const repository = {
-    async loadState(owner) { calls.push(['load', owner]); return { wordLists: [], activeMistakes: [] }; },
+    async loadState(owner) { calls.push(['load', owner]); return { wordLists: [], activeMistakes: [], levelProgress: [] }; },
     async upsertWordList(owner, body) { calls.push(['list', owner, body]); return body; },
     async upsertMistake(owner, body) { calls.push(['mistake', owner, body]); return { ...body, id: body.id || `${body.wordListId}::${body.word.toLowerCase()}` }; },
     async deleteMistake(owner, id) { calls.push(['delete', owner, id]); },
     async deleteWordList(owner, id) { calls.push(['delete-list', owner, id]); },
+    async upsertLevelProgress(owner, body) {
+      calls.push(['level-progress', owner, body]);
+      if (!Number.isInteger(body.bestStars) || body.bestStars < 0 || body.bestStars > 3 || !Number.isInteger(body.levelNumber) || body.levelNumber < 1) {
+        throw Object.assign(new Error('Adventure progress is invalid.'), { code: 'invalid_level_progress' });
+      }
+      return { ...body, updatedAt: '2026-01-01T00:00:00.000Z' };
+    },
     async migrate(owner, body) { calls.push(['migrate', owner, body]); return body; },
   };
   const app = createApp({
@@ -80,6 +87,12 @@ test('protected endpoints reject missing credentials', async () => withServer(as
   assert.equal((await response.json()).error.code, 'unauthorized');
 }));
 
+test('state response includes Adventure level progress', async () => withServer(async (base) => {
+  const response = await fetch(`${base}/api/v2/state`, { headers: { Authorization: 'Bearer alpha' } });
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).levelProgress, []);
+}));
+
 test('owner comes from verified token for reads and writes', async () => withServer(async (base, calls) => {
   await fetch(`${base}/api/v2/state`, { headers: { Authorization: 'Bearer alpha' } });
   await fetch(`${base}/api/v2/word-lists/list-1`, {
@@ -109,6 +122,28 @@ test('word-list deletion is authenticated and owner scoped', async () => withSer
   });
   assert.equal(response.status, 204);
   assert.deepEqual(calls, [['delete-list', 'owner-alpha', 'list-1']]);
+}));
+
+test('Adventure progress writes are origin protected, owner scoped, and strictly validated', async () => withServer(async (base, calls) => {
+  const valid = await fetch(`${base}/api/v2/word-lists/list-1/levels/2/progress`, {
+    method: 'PUT', headers: { Authorization: 'Bearer beta', Origin: 'https://app.example.test', 'content-type': 'application/json' },
+    body: JSON.stringify({ bestStars: 2, ownerId: 'attacker' }),
+  });
+  assert.equal(valid.status, 200);
+  assert.deepEqual(calls[0], ['level-progress', 'owner-beta', { wordListId: 'list-1', levelNumber: 2, bestStars: 2 }]);
+
+  const invalid = await fetch(`${base}/api/v2/word-lists/list-1/levels/0/progress`, {
+    method: 'PUT', headers: { Authorization: 'Bearer alpha', Origin: 'https://app.example.test', 'content-type': 'application/json' },
+    body: JSON.stringify({ bestStars: 4 }),
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).error.code, 'invalid_level_progress');
+
+  const stringStars = await fetch(`${base}/api/v2/word-lists/list-1/levels/1/progress`, {
+    method: 'PUT', headers: { Authorization: 'Bearer alpha', Origin: 'https://app.example.test', 'content-type': 'application/json' },
+    body: JSON.stringify({ bestStars: '2' }),
+  });
+  assert.equal(stringStars.status, 400);
 }));
 
 test('ready fails when database is unavailable', async () => {

@@ -12,6 +12,13 @@ assert.strictEqual(localization.translate('zh', 'auth.resetFailed'), '密码重�
 assert.strictEqual(localization.translate('en', 'list.deleteConfirm', { name: 'Animals' }), 'Delete “Animals” and its mistakes? This cannot be undone.');
 assert.strictEqual(localization.translate('zh', 'list.saveChanges'), '保存更改');
 assert.strictEqual(localization.translate('en', 'mistakes.groupCount', { count: 3 }), '3 active mistakes');
+assert.strictEqual(localization.translate('en', 'adventure.nextLevel'), 'Next Level');
+assert.strictEqual(localization.translate('zh', 'adventure.nextLevel'), '下一关');
+assert.strictEqual(localization.translate('en', 'list.savedProgressReset').includes('progress was reset'), true);
+assert.strictEqual(localization.translate('zh', 'list.savedProgressReset').includes('进度已重置'), true);
+for (const key of Object.keys(localization.getDictionary('en')).filter((entry) => entry.startsWith('adventure.'))) {
+  assert.notStrictEqual(localization.translate('zh', key), key, `missing Chinese translation for ${key}`);
+}
 
 const state = localization.createLocalization();
 assert.strictEqual(state.getLocale(), 'en');

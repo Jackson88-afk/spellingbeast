@@ -105,7 +105,8 @@ function createApp({ repository, verifyAuthorization, pool, publicConfig, appOri
   app.put('/api/v2/word-lists/:id', writeLimiter, async (req, res, next) => {
     try {
       const saved = await repository.upsertWordList(req.user.id, { ...req.body, id: req.params.id });
-      res.json({ wordList: saved });
+      const { progressReset, ...wordList } = saved;
+      res.json({ wordList, progressReset });
     } catch (error) { next(error); }
   });
   app.delete('/api/v2/word-lists/:id', writeLimiter, async (req, res, next) => {
@@ -123,6 +124,16 @@ function createApp({ repository, verifyAuthorization, pool, publicConfig, appOri
       res.status(204).end();
     } catch (error) { next(error); }
   });
+  app.put('/api/v2/word-lists/:id/levels/:level/progress', writeLimiter, async (req, res, next) => {
+    try {
+      const levelProgress = await repository.upsertLevelProgress(req.user.id, {
+        wordListId: req.params.id,
+        levelNumber: Number(req.params.level),
+        bestStars: req.body?.bestStars,
+      });
+      res.json({ levelProgress });
+    } catch (error) { next(error); }
+  });
   app.post('/api/v2/migrate', writeLimiter, async (req, res, next) => {
     try { res.json(await repository.migrate(req.user.id, req.body)); } catch (error) { next(error); }
   });
@@ -131,7 +142,7 @@ function createApp({ repository, verifyAuthorization, pool, publicConfig, appOri
   app.get('/*path', (_req, res) => res.sendFile(path.join(__dirname, '..', 'code', 'index.html')));
 
   app.use((error, req, res, _next) => {
-    const validationCodes = new Set(['invalid_word_list', 'empty_word_list', 'invalid_mistake']);
+    const validationCodes = new Set(['invalid_word_list', 'empty_word_list', 'invalid_mistake', 'invalid_level_progress']);
     const status = Number(error.status)
       || (error.type === 'entity.too.large' ? 413 : validationCodes.has(error.code) ? 400 : 500);
     const code = error.code || (status === 413 ? 'request_too_large' : 'request_failed');

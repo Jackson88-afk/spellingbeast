@@ -1282,6 +1282,78 @@ body,
   color: var(--accent-strong);
 }
 
+.adventure-map,
+.adventure-complete { gap: 22px; }
+.adventure-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+.adventure-header > div,
+.adventure-complete__hero { display: grid; gap: 6px; }
+.adventure-total {
+  padding: 10px 14px;
+  border: 1px solid #dfc58f;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.level-card { display: grid; align-content: start; gap: 7px; }
+.level-button {
+  width: 100%;
+  min-height: 138px;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 9px;
+  padding: 18px;
+  text-align: left;
+}
+.level-card--unlocked .level-button { border-color: #dfc58f; background: var(--accent-ghost); }
+.level-card--locked .level-button { border-style: dashed; background: var(--warm-soft); opacity: 1; }
+.level-card__number { font-size: 1.15rem; font-weight: 800; }
+.level-card__status,
+.level-card__hint,
+.star-result__text { color: var(--muted); font-size: 0.86rem; }
+.level-card__hint { margin: 0 4px; }
+.star-result {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+.adventure-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.adventure-results > div,
+.adventure-score {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--accent-ghost);
+}
+.adventure-score { grid-column: 1 / -1; place-items: center; font-weight: 800; }
+.adventure-complete__actions > button,
+#next-level { min-height: 44px; }
+#next-level,
+#retry-adventure-save { background: var(--accent); border-color: var(--accent-strong); color: #fff; }
+
 @media (min-width: 760px) {
   .import-form {
     gap: 16px;
@@ -1400,6 +1472,15 @@ body,
   }
 }
 
+@media (max-width: 740px) {
+  .adventure-header { grid-template-columns: 1fr; align-items: start; }
+  .adventure-total { justify-self: start; }
+  .level-grid,
+  .adventure-results { grid-template-columns: 1fr; }
+  .adventure-complete__actions,
+  .adventure-complete__actions > button { width: 100%; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .card,
   .practice-screen,
@@ -1422,6 +1503,15 @@ body,
   .summary-stats__item:hover {
     transform: translateY(-1px);
   }
+
+  .star-reveal .star-result {
+    animation: star-reveal 700ms ease-out both;
+  }
+}
+
+@keyframes star-reveal {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes rise {

@@ -75,12 +75,22 @@ function toMistake(row) {
   };
 }
 
+function toLevelProgress(row) {
+  return {
+    wordListId: row.word_list_id,
+    levelNumber: Number(row.level_number),
+    bestStars: Number(row.best_stars),
+    updatedAt: new Date(row.updated_at).toISOString(),
+  };
+}
+
 function createRepository(pool) {
   async function loadState(ownerId, client = pool) {
-    const [listsResult, wordsResult, mistakesResult] = await Promise.all([
+    const [listsResult, wordsResult, mistakesResult, progressResult] = await Promise.all([
       client.query('select id, name, created_at, updated_at from word_lists where owner_id = $1 order by created_at, id', [ownerId]),
       client.query(`select w.word_list_id, w.position, w.word from word_list_words w join word_lists l on l.id = w.word_list_id where l.owner_id = $1 order by w.word_list_id, w.position`, [ownerId]),
       client.query(`select m.*, l.name as word_list_name from active_mistakes m left join word_lists l on l.id = m.word_list_id and l.owner_id = m.owner_id where m.owner_id = $1 order by m.created_at, m.id`, [ownerId]),
+      client.query(`select word_list_id, level_number, best_stars, updated_at from adventure_level_progress where owner_id = $1 order by word_list_id, level_number`, [ownerId]),
     ]);
     const wordsByList = new Map();
     for (const row of wordsResult.rows) {
@@ -90,6 +100,7 @@ function createRepository(pool) {
     return {
       wordLists: listsResult.rows.map((row) => toWordList(row, wordsByList.get(row.id) || [])),
       activeMistakes: mistakesResult.rows.map(toMistake),
+      levelProgress: progressResult.rows.map(toLevelProgress),
     };
   }
 
@@ -103,6 +114,13 @@ function createRepository(pool) {
       if (conflict.rows[0] && String(conflict.rows[0].owner_id) !== ownerId) {
         throw Object.assign(new Error('Resource not found.'), { code: 'not_found', status: 404 });
       }
+      const previousWords = conflict.rows[0]
+        ? await client.query('select normalized_word from word_list_words where word_list_id = $1 order by position', [list.id])
+        : { rows: [] };
+      const previousSequence = previousWords.rows.map((row) => row.normalized_word);
+      const nextSequence = list.words.map((entry) => entry.normalizedWord);
+      const progressReset = Boolean(conflict.rows[0]
+        && (previousSequence.length !== nextSequence.length || previousSequence.some((word, index) => word !== nextSequence[index])));
       await client.query(`insert into word_lists (id, owner_id, name, created_at, updated_at) values ($1,$2,$3,$4,$5)
         on conflict (id) do update set name = excluded.name, updated_at = excluded.updated_at where word_lists.owner_id = excluded.owner_id`,
       [list.id, ownerId, list.name, list.createdAt, list.updatedAt]);
@@ -113,8 +131,9 @@ function createRepository(pool) {
       }
       await client.query('delete from active_mistakes where owner_id = $1 and word_list_id = $2 and not (normalized_word = any($3::text[]))',
         [ownerId, list.id, list.words.map((entry) => entry.normalizedWord)]);
+      if (progressReset) await client.query('delete from adventure_level_progress where owner_id = $1 and word_list_id = $2', [ownerId, list.id]);
       if (ownsClient) await client.query('commit');
-      return { id: list.id, name: list.name, words: list.words.map((entry) => entry.word), createdAt: list.createdAt, updatedAt: list.updatedAt };
+      return { id: list.id, name: list.name, words: list.words.map((entry) => entry.word), createdAt: list.createdAt, updatedAt: list.updatedAt, progressReset };
     } catch (error) {
       if (ownsClient) await client.query('rollback');
       throw error;
@@ -153,6 +172,28 @@ function createRepository(pool) {
     await client.query('delete from active_mistakes where id = $1 and owner_id = $2', [id, ownerId]);
   }
 
+  async function upsertLevelProgress(ownerId, input, client = pool) {
+    const wordListId = String(input?.wordListId || '').trim();
+    const levelNumber = input?.levelNumber;
+    const bestStars = input?.bestStars;
+    if (!wordListId || !Number.isInteger(levelNumber) || levelNumber < 1
+      || !Number.isInteger(bestStars) || bestStars < 0 || bestStars > 3) {
+      throw Object.assign(new Error('Adventure progress is invalid.'), { code: 'invalid_level_progress' });
+    }
+    const listResult = await client.query(`select count(w.id)::integer as word_count
+      from word_lists l left join word_list_words w on w.word_list_id = l.id
+      where l.id = $1 and l.owner_id = $2 group by l.id`, [wordListId, ownerId]);
+    if (!listResult.rows.length) throw Object.assign(new Error('Resource not found.'), { code: 'not_found', status: 404 });
+    const maxLevel = Math.ceil(Number(listResult.rows[0].word_count) / 5);
+    if (levelNumber > maxLevel) throw Object.assign(new Error('Adventure level is invalid.'), { code: 'invalid_level_progress' });
+    const result = await client.query(`insert into adventure_level_progress (owner_id, word_list_id, level_number, best_stars)
+      values ($1,$2,$3,$4)
+      on conflict (owner_id, word_list_id, level_number) do update
+      set best_stars = greatest(adventure_level_progress.best_stars, excluded.best_stars), updated_at = now()
+      returning word_list_id, level_number, best_stars, updated_at`, [ownerId, wordListId, levelNumber, bestStars]);
+    return toLevelProgress(result.rows[0]);
+  }
+
   async function migrate(ownerId, payload) {
     const client = await pool.connect();
     try {
@@ -169,7 +210,7 @@ function createRepository(pool) {
     }
   }
 
-  return { deleteMistake, deleteWordList, loadState, migrate, upsertMistake, upsertWordList };
+  return { deleteMistake, deleteWordList, loadState, migrate, upsertLevelProgress, upsertMistake, upsertWordList };
 }
 
-module.exports = { createRepository, normalizeMistake, normalizeWordList, normalizeWords };
+module.exports = { createRepository, normalizeMistake, normalizeWordList, normalizeWords, toLevelProgress };

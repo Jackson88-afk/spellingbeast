@@ -151,10 +151,29 @@ function testActiveMistakePersistence() {
   assert.deepEqual(afterDeleteRefresh.loadActiveMistakes(), [second]);
 }
 
+function testAdventureProgressPersistence() {
+  const storage = createMemoryStorage();
+  const persistence = createPersistence({ storage, namespace: 'adventure' });
+  persistence.saveWordList({ id: 'list-1', name: 'Words', words: ['a', 'b', 'c', 'd', 'e', 'f'] });
+  assert.equal(persistence.saveLevelProgress({ wordListId: 'list-1', levelNumber: 1, bestStars: 3 }).bestStars, 3);
+  assert.equal(persistence.saveLevelProgress({ wordListId: 'list-1', levelNumber: 1, bestStars: 1 }).bestStars, 3);
+  assert.throws(() => persistence.saveLevelProgress({ wordListId: 'list-1', levelNumber: 3, bestStars: 1 }), /invalid/);
+
+  persistence.saveWordList({ id: 'list-1', name: 'Renamed', words: ['a', 'b', 'c', 'd', 'e', 'f'] });
+  assert.equal(persistence.loadLevelProgress().length, 1);
+  persistence.updateWordList('list-1', { words: ['a', 'b'] });
+  assert.deepEqual(persistence.loadLevelProgress(), []);
+
+  persistence.saveLevelProgress({ wordListId: 'list-1', levelNumber: 1, bestStars: 1 });
+  persistence.deleteWordList('list-1');
+  assert.deepEqual(persistence.loadLevelProgress(), []);
+}
+
 function run() {
   testWordListPersistence();
   testNamespaceIsolation();
   testActiveMistakePersistence();
+  testAdventureProgressPersistence();
   console.log('persistence tests passed');
 }
 

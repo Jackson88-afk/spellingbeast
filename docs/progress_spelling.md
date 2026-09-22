@@ -4,9 +4,9 @@ Specification: spec_spelling.md
 
 Specification Version: 1.1
 
-Status: In Development
+Status: v2.2 Adventure Levels implemented and verified locally
 
-Current Phase: Phase 9 - American English Pronunciation (Completed)
+Current Phase: v2.2 Adventure Levels (TASK-220 through TASK-226 completed)
 
 ## 1. Product Documentation Status
 
@@ -349,6 +349,18 @@ The primary goal is to validate the core spelling practice experience before add
 The Developer should avoid premature architecture for future features such as accounts, cloud synchronization, AI, gamification, or advanced spaced repetition.
 
 ## 10. Change Log
+
+### Version 2.2 — Adventure Levels (2026-09-21)
+
+- TASK-220: Added deterministic five-word level generation, isolated injected shuffle, integer star scoring, sequential unlocks, and best-star merging with unit boundary coverage.
+- TASK-221: Added `002_adventure_level_progress.sql`, owner/list integrity, 0–3-star constraints, owner-scoped repository reads/upserts, non-regressing SQL merge, list-delete cascade, atomic changed-word reset, rename preservation, and rollback tests.
+- TASK-222: Extended `/api/v2/state`, added authenticated/origin-protected progress writes, strict payload and level bounds, confirmed-write-only remote cache updates, and retry-safe pending writes.
+- TASK-223: Added the bilingual Adventure action and responsive, keyboard-operable level map with semantic lock/star labels and visible lock explanations.
+- TASK-224: Reused the existing exact answer/audio practice loop for level-only sessions and added attempt/best stars, score, retry, map, conditional next-level, and Retry Save completion actions.
+- TASK-225: Added encouraging localized result copy, a 700 ms non-blocking star reveal, and `prefers-reduced-motion` suppression.
+- TASK-226: `npm test` and all four UI E2E scripts pass, including Adventure unlock, failed-save retry, replay non-regression, refresh persistence, Chinese locale, keyboard entry, 390×844 layout, and reduced-motion checks.
+
+Verification limitation: this environment has no Neon database/auth configuration, so the migration was not applied to a live Neon project and authenticated second-browser persistence was not exercised against production infrastructure. Repository/API/remote-cache behavior is covered by automated tests; browser persistence was exercised with the explicit local E2E adapter.
 
 ### Version 1.0
 

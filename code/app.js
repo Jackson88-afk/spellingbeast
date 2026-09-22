@@ -5,7 +5,8 @@ function initApp() {
   const apiClient = typeof SpellingBeastApi !== 'undefined'
     ? SpellingBeastApi.createApiClient()
     : null;
-  const persistence = typeof SpellingBeastRemotePersistence !== 'undefined' && apiClient
+  const localOnly = typeof window.location !== 'undefined' && new URLSearchParams(window.location.search || '').get('local') === '1';
+  const persistence = typeof SpellingBeastRemotePersistence !== 'undefined' && apiClient && !localOnly
     ? SpellingBeastRemotePersistence.createRemotePersistence({
       apiClient,
       localPersistence,
@@ -40,6 +41,10 @@ function initApp() {
   let deletingListId = null;
   let deleteError = '';
   let deletingList = false;
+  let adventureLevelNumber = null;
+  let adventureAttemptStars = null;
+  let adventureSavePending = null;
+  let adventureSaving = false;
 
   function t(key, values) {
     return localization.translate(key, values);
@@ -139,7 +144,7 @@ function initApp() {
   }
   localization.onChange(() => {
     applyLocalization();
-    if (apiClient && !authUser) renderAuth();
+    if (apiClient && !localOnly && !authUser) renderAuth();
     else render();
   });
 
@@ -324,6 +329,11 @@ function initApp() {
       return;
     }
 
+    if (view === 'adventure') {
+      renderAdventureMap(lists);
+      return;
+    }
+
     if (view === 'mistakes') {
       renderMistakes(mistakeSummary);
       return;
@@ -353,6 +363,7 @@ function initApp() {
               </div>
               <div class="word-list-item__actions">
                 <button type="button" class="practice-list" data-list-id="${escapeHtml(list.id)}">${t('setup.startButton')}</button>
+                <button type="button" class="adventure-list secondary-button" data-list-id="${escapeHtml(list.id)}">${t('adventure.action')}</button>
                 <button type="button" class="edit-list secondary-button" data-list-id="${escapeHtml(list.id)}">${t('list.edit')}</button>
                 <button type="button" class="delete-list danger-button" data-list-id="${escapeHtml(list.id)}">${t('list.delete')}</button>
               </div>
@@ -381,6 +392,9 @@ function initApp() {
     document.getElementById('mistakes').addEventListener('click', () => openMistakes());
     document.querySelectorAll('.practice-list').forEach((button) => {
       button.addEventListener('click', () => openPracticeSetup(button.dataset.listId));
+    });
+    document.querySelectorAll('.adventure-list').forEach((button) => {
+      button.addEventListener('click', () => openAdventure(button.dataset.listId));
     });
     document.querySelectorAll('.edit-list').forEach((button) => {
       button.addEventListener('click', () => {
@@ -550,6 +564,58 @@ function initApp() {
     focusPendingTarget();
   }
 
+  function renderAdventureMap(lists) {
+    const list = lists.find((entry) => entry.id === selectedListId);
+    if (!list) {
+      view = 'home';
+      render();
+      return;
+    }
+    const levels = SpellingBeastAdventure.createLevels(list.words);
+    const allProgress = typeof persistence.loadLevelProgress === 'function' ? persistence.loadLevelProgress() : [];
+    const progress = SpellingBeastAdventure.progressForList(allProgress, list.id);
+    const total = SpellingBeastAdventure.totalStars(levels, progress);
+    app.innerHTML = `
+      <section class="card adventure-map">
+        <header class="adventure-header">
+          <button type="button" class="link-button" id="adventure-home">${t('adventure.back')}</button>
+          <div><p class="eyebrow">${t('adventure.title')}</p><h2>${escapeHtml(list.name)}</h2></div>
+          <p class="adventure-total" aria-label="${t('adventure.totalStarsLabel', { count: total })}">${t('adventure.totalStars', { count: total })}</p>
+        </header>
+        <ol class="level-grid" aria-label="${t('adventure.levelsLabel')}">
+          ${levels.map((level) => {
+            const stars = Number(progress[level.number] || 0);
+            const unlocked = SpellingBeastAdventure.isLevelUnlocked(level.number, progress);
+            const label = unlocked
+              ? t('adventure.levelAria', { level: level.number, stars })
+              : t('adventure.lockedAria', { level: level.number });
+            return `<li class="level-card ${unlocked ? 'level-card--unlocked' : 'level-card--locked'}">
+              <button type="button" class="level-button" data-level="${level.number}" aria-label="${label}" ${unlocked ? '' : `disabled title="${t('adventure.lockHint')}"`}>
+                <span class="level-card__number">${t('adventure.level', { level: level.number })}</span>
+                ${renderStars(stars, 'adventure.bestStars')}
+                <span class="level-card__status">${t(unlocked ? 'adventure.unlocked' : 'adventure.locked')}</span>
+              </button>
+              ${unlocked ? '' : `<p class="level-card__hint">${t('adventure.lockHint')}</p>`}
+            </li>`;
+          }).join('')}
+        </ol>
+      </section>`;
+    document.getElementById('adventure-home').addEventListener('click', () => {
+      view = 'home';
+      queueFocus(`.adventure-list[data-list-id="${selectedListId}"]`);
+      render();
+    });
+    document.querySelectorAll('.level-button:not(:disabled)').forEach((button) => {
+      button.addEventListener('click', () => startAdventureLevel(Number(button.dataset.level)));
+    });
+    focusPendingTarget();
+  }
+
+  function renderStars(stars, labelKey) {
+    const count = Number(stars || 0);
+    return `<span class="star-result" role="img" aria-label="${t(labelKey, { count })}"><span aria-hidden="true">${'★'.repeat(count)}${'☆'.repeat(3 - count)}</span><span class="star-result__text">${t('adventure.starsOutOfThree', { count })}</span></span>`;
+  }
+
   function renderSetup(lists) {
     const list = lists.find((entry) => entry.id === selectedListId);
     if (!list) {
@@ -604,6 +670,10 @@ function initApp() {
     const progressPercent = state.totalWords > 0 ? Math.round((state.currentPosition / state.totalWords) * 100) : 0;
 
     if (state.phase === 'complete') {
+      if (practiceMode === 'adventure') {
+        renderAdventureCompletion(state.summary);
+        return;
+      }
       const summary = state.summary || {
         correctCount: 0,
         totalAttempted: 0,
@@ -708,7 +778,7 @@ function initApp() {
           </div>
         </div>
         <div class="practice-question">
-          <h2>${escapeHtml(practiceMode === 'mistakes' ? `${t('mistakes.practiceSessionName')}: ${practiceList.wordListName}` : practiceList.name)}</h2>
+          <h2>${escapeHtml(practiceMode === 'mistakes' ? `${t('mistakes.practiceSessionName')}: ${practiceList.wordListName}` : practiceMode === 'adventure' ? `${practiceList.wordListName} · ${t('adventure.level', { level: adventureLevelNumber })}` : practiceList.name)}</h2>
           <p class="practice-prompt">${t('practice.prompt')}</p>
         </div>
         <div class="practice-panel">
@@ -743,12 +813,13 @@ function initApp() {
 
     document.getElementById('practice-back').addEventListener('click', () => {
       const wasMistakePractice = practiceMode === 'mistakes';
+      const wasAdventure = practiceMode === 'adventure';
       practice = null;
       practiceList = null;
       practiceMode = 'normal';
       audioMessage = '';
-      queueFocus(wasMistakePractice ? '#back-home' : '#add-list');
-      view = wasMistakePractice ? 'mistakes' : 'home';
+      queueFocus(wasMistakePractice ? '#back-home' : wasAdventure ? `[data-level="${adventureLevelNumber}"]` : '#add-list');
+      view = wasMistakePractice ? 'mistakes' : wasAdventure ? 'adventure' : 'home';
       render();
     });
 
@@ -793,11 +864,15 @@ function initApp() {
       render();
     });
 
-    document.getElementById('next-word').addEventListener('click', () => {
+    document.getElementById('next-word').addEventListener('click', async () => {
       const nextState = practice.next();
       audioMessage = '';
       if (nextState.phase === 'complete') {
-        if (SpellingBeastPractice.shouldShowPracticeMistakesAction(nextState.summary)) {
+        if (practiceMode === 'adventure') {
+          adventureAttemptStars = SpellingBeastAdventure.scoreStars(nextState.summary.correctCount, nextState.summary.totalAttempted);
+          adventureSavePending = { wordListId: selectedListId, levelNumber: adventureLevelNumber, bestStars: adventureAttemptStars };
+          await saveAdventureResult();
+        } else if (SpellingBeastPractice.shouldShowPracticeMistakesAction(nextState.summary)) {
           queueFocus('#practice-mistakes-summary');
         } else if (practiceMode === 'mistakes' || nextState.summary.needsMorePracticeCount > 0) {
           queueFocus('#summary-mistakes');
@@ -842,6 +917,68 @@ function initApp() {
     focusPendingTarget();
   }
 
+  function renderAdventureCompletion(summary) {
+    const result = summary || { correctCount: 0, totalAttempted: 0 };
+    const allProgress = typeof persistence.loadLevelProgress === 'function' ? persistence.loadLevelProgress() : [];
+    const progress = SpellingBeastAdventure.progressForList(allProgress, selectedListId);
+    const bestStars = Number(progress[adventureLevelNumber] || 0);
+    const levels = SpellingBeastAdventure.createLevels(persistence.loadWordLists().find((entry) => entry.id === selectedListId)?.words || []);
+    const nextLevel = adventureLevelNumber + 1;
+    const canContinue = nextLevel <= levels.length && SpellingBeastAdventure.isLevelUnlocked(nextLevel, progress);
+    const passed = Number(adventureAttemptStars || 0) > 0;
+    app.innerHTML = `
+      <section class="card adventure-complete" data-save-state="${adventureSaving ? 'saving' : adventureSavePending ? 'error' : 'saved'}">
+        <header class="adventure-complete__hero">
+          <p class="eyebrow">${t('adventure.levelComplete', { level: adventureLevelNumber })}</p>
+          <h2>${t(passed ? 'adventure.passTitle' : 'adventure.retryTitle')}</h2>
+          <p class="lead">${t(passed ? 'adventure.passMessage' : 'adventure.retryMessage')}</p>
+        </header>
+        <div class="adventure-results ${passed ? 'star-reveal' : ''}" aria-live="polite">
+          <div><h3>${t('adventure.attemptStars')}</h3>${renderStars(adventureAttemptStars, 'adventure.attemptStarsLabel')}</div>
+          <div><h3>${t('adventure.best')}</h3>${renderStars(bestStars, 'adventure.bestStars')}</div>
+          <p class="adventure-score">${t('adventure.score', { correct: result.correctCount, total: result.totalAttempted })}</p>
+        </div>
+        ${adventureSaving ? `<p class="status" role="status">${t('adventure.saving')}</p>` : ''}
+        ${adventureSavePending && !adventureSaving ? `<div class="sync-error" role="alert"><span>${t('adventure.saveError')}</span><button type="button" id="retry-adventure-save">${t('adventure.retrySave')}</button></div>` : ''}
+        <div class="action-row adventure-complete__actions">
+          <button type="button" id="retry-level">${t('adventure.retryLevel')}</button>
+          <button type="button" id="level-map" class="secondary-button">${t('adventure.levelMap')}</button>
+          ${canContinue ? `<button type="button" id="next-level">${t('adventure.nextLevel')}</button>` : ''}
+        </div>
+      </section>`;
+    const retrySave = document.getElementById('retry-adventure-save');
+    if (retrySave) retrySave.addEventListener('click', async () => {
+      await saveAdventureResult();
+      render();
+    });
+    document.getElementById('retry-level').addEventListener('click', () => startAdventureLevel(adventureLevelNumber));
+    document.getElementById('level-map').addEventListener('click', () => {
+      practice = null;
+      practiceList = null;
+      practiceMode = 'normal';
+      view = 'adventure';
+      queueFocus(`[data-level="${adventureLevelNumber}"]`);
+      render();
+    });
+    const next = document.getElementById('next-level');
+    if (next) next.addEventListener('click', () => startAdventureLevel(nextLevel));
+    focusPendingTarget();
+  }
+
+  async function saveAdventureResult() {
+    if (!adventureSavePending || adventureSaving) return;
+    adventureSaving = true;
+    render();
+    try {
+      await persistence.saveLevelProgress(adventureSavePending);
+      adventureSavePending = null;
+    } catch (_error) {
+      // Keep the exact pending write for Retry Save; answers are not submitted again.
+    } finally {
+      adventureSaving = false;
+    }
+  }
+
   function renderFeedback(feedback) {
     if (!feedback) {
       return '';
@@ -876,6 +1013,42 @@ function initApp() {
     message = '';
     queueFocus('#back-home');
     view = 'mistakes';
+    render();
+  }
+
+  function openAdventure(listId) {
+    selectedListId = listId;
+    adventureLevelNumber = null;
+    adventureAttemptStars = null;
+    adventureSavePending = null;
+    message = '';
+    view = 'adventure';
+    queueFocus('[data-level="1"]');
+    render();
+  }
+
+  function startAdventureLevel(levelNumber) {
+    const list = persistence.loadWordLists().find((entry) => entry.id === selectedListId);
+    if (!list) return openAdventure(selectedListId);
+    const progress = SpellingBeastAdventure.progressForList(
+      typeof persistence.loadLevelProgress === 'function' ? persistence.loadLevelProgress() : [],
+      list.id,
+    );
+    if (!SpellingBeastAdventure.isLevelUnlocked(levelNumber, progress)) return;
+    const session = SpellingBeastAdventure.createLevelSession(list, levelNumber);
+    practice = SpellingBeastPractice.createPracticeStateMachine(session);
+    practice.start();
+    practiceList = session;
+    practiceMode = 'adventure';
+    adventureLevelNumber = levelNumber;
+    adventureAttemptStars = null;
+    adventureSavePending = null;
+    adventureSaving = false;
+    audioMessage = '';
+    audioPlaying = false;
+    syncError = '';
+    retrySync = null;
+    view = 'practice';
     render();
   }
 
@@ -972,6 +1145,10 @@ function initApp() {
         const existing = editingListId
           ? persistence.loadWordLists().find((list) => list.id === editingListId)
           : null;
+        const normalizeSequence = (words) => words.map((word) => String(word).trim().toLocaleLowerCase('en-US'));
+        const oldSequence = normalizeSequence(existing?.words || []);
+        const newSequence = normalizeSequence(result.words);
+        const progressWasReset = Boolean(existing && (oldSequence.length !== newSequence.length || oldSequence.some((word, index) => word !== newSequence[index])));
         await persistence.saveWordList(SpellingBeastWordList.createWordList({
           id: existing?.id || SpellingBeastWordList.createId(),
           name: form.elements.name.value.trim(),
@@ -982,7 +1159,7 @@ function initApp() {
         editingListId = null;
         queueFocus('#add-list');
         view = 'home';
-        message = t('home.savedMessage');
+        message = t(progressWasReset ? 'list.savedProgressReset' : 'home.savedMessage');
         render();
       } catch (_error) {
         submitButton.disabled = false;
