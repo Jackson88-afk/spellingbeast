@@ -45,9 +45,24 @@ function initApp() {
   let adventureAttemptStars = null;
   let adventureSavePending = null;
   let adventureSaving = false;
+  let adventureMapPositionPending = false;
 
   function t(key, values) {
     return localization.translate(key, values);
+  }
+
+  function svgIcon(name, className = 'ui-icon') {
+    return `<svg class="${className}" aria-hidden="true" focusable="false"><use href="#icon-${name}"></use></svg>`;
+  }
+
+  function adventureScenery(kind = 'map') {
+    return `<div class="adventure-scenery adventure-scenery--${kind}" aria-hidden="true">
+      ${svgIcon('cloud', 'scenery-icon scenery-cloud scenery-cloud--one')}
+      ${svgIcon('cloud', 'scenery-icon scenery-cloud scenery-cloud--two')}
+      ${svgIcon('flower', 'scenery-icon scenery-flower scenery-flower--one')}
+      ${svgIcon('flower', 'scenery-icon scenery-flower scenery-flower--two')}
+      ${svgIcon('hill', 'scenery-icon scenery-hill')}
+    </div>`;
   }
 
   function queueFocus(selector) {
@@ -575,29 +590,41 @@ function initApp() {
     const allProgress = typeof persistence.loadLevelProgress === 'function' ? persistence.loadLevelProgress() : [];
     const progress = SpellingBeastAdventure.progressForList(allProgress, list.id);
     const total = SpellingBeastAdventure.totalStars(levels, progress);
+    const recommended = SpellingBeastAdventure.recommendedLevel(levels, progress);
     app.innerHTML = `
       <section class="card adventure-map">
+        ${adventureScenery('map')}
         <header class="adventure-header">
           <button type="button" class="link-button" id="adventure-home">${t('adventure.back')}</button>
           <div><p class="eyebrow">${t('adventure.title')}</p><h2>${escapeHtml(list.name)}</h2></div>
           <p class="adventure-total" aria-label="${t('adventure.totalStarsLabel', { count: total })}">${t('adventure.totalStars', { count: total })}</p>
         </header>
-        <ol class="level-grid" aria-label="${t('adventure.levelsLabel')}">
-          ${levels.map((level) => {
+        <ol class="journey-path" aria-label="${t('adventure.levelsLabel')}">
+          ${levels.map((level, index) => {
             const stars = Number(progress[level.number] || 0);
             const unlocked = SpellingBeastAdventure.isLevelUnlocked(level.number, progress);
-            const label = unlocked
-              ? t('adventure.levelAria', { level: level.number, stars })
-              : t('adventure.lockedAria', { level: level.number });
-            return `<li class="level-card ${unlocked ? 'level-card--unlocked' : 'level-card--locked'}">
+            const isRecommended = level.number === recommended && stars === 0;
+            const state = !unlocked ? 'locked' : isRecommended ? 'recommended' : stars > 0 ? 'completed' : 'available';
+            const labelKey = state === 'locked' ? 'adventure.lockedAria' : `adventure.${state}Aria`;
+            const label = t(labelKey, { level: level.number, stars });
+            const position = SpellingBeastAdventure.journeyPosition(level.number);
+            const nextPosition = index + 1 < levels.length ? SpellingBeastAdventure.journeyPosition(levels[index + 1].number) : null;
+            const pathX = { left: 50, center: 150, right: 250 };
+            return `<li class="level-card level-card--${state} journey-path__stop journey-path__stop--${position}" data-state="${state}">
+              ${nextPosition ? `<svg class="journey-trail" viewBox="0 0 300 166" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M ${pathX[position]} 0 C ${pathX[position]} 58, ${pathX[nextPosition]} 108, ${pathX[nextPosition]} 166"></path></svg>` : ''}
               <button type="button" class="level-button" data-level="${level.number}" aria-label="${label}" ${unlocked ? '' : `disabled title="${t('adventure.lockHint')}"`}>
+                ${isRecommended ? `<span class="level-bee">${svgIcon('bee', 'level-bee__icon')}<span>${t('adventure.start')}</span></span>` : ''}
+                <span class="level-node" aria-hidden="true">
+                  ${state === 'locked' ? svgIcon('lock', 'level-node__lock') : `<span class="level-node__number">${level.number}</span>`}
+                </span>
                 <span class="level-card__number">${t('adventure.level', { level: level.number })}</span>
-                ${renderStars(stars, 'adventure.bestStars')}
-                <span class="level-card__status">${t(unlocked ? 'adventure.unlocked' : 'adventure.locked')}</span>
+                ${stars > 0 ? renderStars(stars, 'adventure.bestStars') : ''}
+                <span class="level-card__status">${t(`adventure.${state}`)}</span>
               </button>
               ${unlocked ? '' : `<p class="level-card__hint">${t('adventure.lockHint')}</p>`}
             </li>`;
           }).join('')}
+          <li class="journey-finish" aria-label="${t('adventure.finish')}">${svgIcon('flag', 'journey-finish__flag')}<span>${t('adventure.finish')}</span></li>
         </ol>
       </section>`;
     document.getElementById('adventure-home').addEventListener('click', () => {
@@ -608,12 +635,21 @@ function initApp() {
     document.querySelectorAll('.level-button:not(:disabled)').forEach((button) => {
       button.addEventListener('click', () => startAdventureLevel(Number(button.dataset.level)));
     });
+    if (adventureMapPositionPending && recommended) {
+      adventureMapPositionPending = false;
+      const target = document.querySelector(`.level-button[data-level="${recommended}"]`);
+      if (target && typeof target.scrollIntoView === 'function') {
+        const positionTarget = () => target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+        if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(positionTarget);
+        else positionTarget();
+      }
+    }
     focusPendingTarget();
   }
 
   function renderStars(stars, labelKey) {
     const count = Number(stars || 0);
-    return `<span class="star-result" role="img" aria-label="${t(labelKey, { count })}"><span aria-hidden="true">${'★'.repeat(count)}${'☆'.repeat(3 - count)}</span><span class="star-result__text">${t('adventure.starsOutOfThree', { count })}</span></span>`;
+    return `<span class="star-result" role="img" aria-label="${t(labelKey, { count })}"><span class="star-result__icons" aria-hidden="true">${[1, 2, 3].map((star) => svgIcon('star', `star-icon ${star <= count ? 'star-icon--earned' : 'star-icon--empty'}`)).join('')}</span><span class="star-result__text">${t('adventure.starsOutOfThree', { count })}</span></span>`;
   }
 
   function renderSetup(lists) {
@@ -761,9 +797,19 @@ function initApp() {
     const isCorrect = feedback ? feedback.isCorrect : false;
     const feedbackClass = feedback ? (isCorrect ? 'feedback feedback--correct' : 'feedback feedback--incorrect') : 'feedback';
     const nextLabel = state.currentIndex + 1 >= state.totalWords ? t('practice.doneButton') : t('practice.nextButton');
+    const isAdventurePractice = practiceMode === 'adventure';
+    const adventureScene = isAdventurePractice ? `<div class="adventure-practice-scene" aria-label="${t('adventure.sceneLabel')}">
+      ${adventureScenery('practice')}
+      ${svgIcon('bee', 'adventure-practice-scene__bee')}
+      <ol class="adventure-steps">
+        <li class="adventure-step adventure-step--done">${svgIcon('speaker')}<span>${t('adventure.stepListen')}</span></li>
+        <li class="adventure-step adventure-step--current">${svgIcon('pencil')}<span>${t('adventure.stepType')}</span></li>
+        <li class="adventure-step">${svgIcon('check')}<span>${t('adventure.stepCheck')}</span></li>
+      </ol>
+    </div>` : '';
 
     app.innerHTML = `
-      <section class="card practice-screen" data-phase="${state.phase}">
+      <section class="card practice-screen${isAdventurePractice ? ' adventure-practice' : ''}" data-phase="${state.phase}">
         <div class="practice-header">
           <button type="button" class="link-button practice-back" id="practice-back">${t('setup.backButton')}</button>
           <p class="status practice-status" aria-live="polite">${t('practice.progressLabel')}</p>
@@ -777,6 +823,7 @@ function initApp() {
             <div class="practice-progress__fill" style="width: ${progressPercent}%"></div>
           </div>
         </div>
+        ${adventureScene}
         <div class="practice-question">
           <h2>${escapeHtml(practiceMode === 'mistakes' ? `${t('mistakes.practiceSessionName')}: ${practiceList.wordListName}` : practiceMode === 'adventure' ? `${practiceList.wordListName} · ${t('adventure.level', { level: adventureLevelNumber })}` : practiceList.name)}</h2>
           <p class="practice-prompt">${t('practice.prompt')}</p>
@@ -784,12 +831,7 @@ function initApp() {
         <div class="practice-panel">
           <div class="practice-actions">
             <button type="button" id="play-word" data-playing="${audioPlaying ? 'true' : 'false'}" aria-busy="${audioPlaying ? 'true' : 'false'}" ${audioPlaying ? 'disabled' : ''}>
-              <span class="play-icon" aria-hidden="true">
-                <span class="play-icon__body"></span>
-                <span class="play-icon__wave play-icon__wave--one"></span>
-                <span class="play-icon__wave play-icon__wave--two"></span>
-                <span class="play-icon__wave play-icon__wave--three"></span>
-              </span>
+              ${svgIcon('speaker', 'ui-icon play-icon')}
               <span class="play-label">${t('practice.playButton')}</span>
               ${audioPlaying ? '<span class="play-status" aria-hidden="true"></span>' : ''}
             </button>
@@ -798,11 +840,11 @@ function initApp() {
           ${audioMessage ? `<p class="status status--error practice-audio-message" role="alert">${escapeHtml(audioMessage)}</p>` : ''}
           ${syncError ? `<div class="sync-error" role="alert"><span>${escapeHtml(syncError)}</span><button type="button" id="retry-sync">${t('app.retry')}</button></div>` : ''}
           <form id="practice-form" class="practice-form">
-            <label for="answer">${t('practice.answerLabel')}</label>
+            <label for="answer">${isAdventurePractice ? svgIcon('pencil') : ''}${t('practice.answerLabel')}</label>
             <input id="answer" name="answer" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${t('practice.answerPlaceholder')}" value="${escapeHtml(answerValue)}" ${canEditAnswer ? '' : 'disabled'} />
             <div class="action-row action-row--spaced practice-submit-row">
-              <button type="submit" id="submit-answer"${canEditAnswer ? '' : ' hidden'}>${t('practice.submitButton')}</button>
-              <button type="button" id="next-word"${canShowFeedback ? '' : ' hidden'}${syncError ? ' disabled' : ''}>${nextLabel}</button>
+              <button type="submit" id="submit-answer"${canEditAnswer ? '' : ' hidden'}>${isAdventurePractice ? svgIcon('check') : ''}${t('practice.submitButton')}</button>
+              <button type="button" id="next-word"${canShowFeedback ? '' : ' hidden'}${syncError ? ' disabled' : ''}>${nextLabel}${isAdventurePractice ? svgIcon('arrow') : ''}</button>
             </div>
           </form>
           <div class="${feedbackClass} practice-feedback" id="feedback"${feedback ? '' : ' hidden'} aria-live="polite">
@@ -926,9 +968,13 @@ function initApp() {
     const nextLevel = adventureLevelNumber + 1;
     const canContinue = nextLevel <= levels.length && SpellingBeastAdventure.isLevelUnlocked(nextLevel, progress);
     const passed = Number(adventureAttemptStars || 0) > 0;
+    const saveFailed = Boolean(adventureSavePending && !adventureSaving);
+    const primaryAction = canContinue ? 'next' : 'retry';
     app.innerHTML = `
       <section class="card adventure-complete" data-save-state="${adventureSaving ? 'saving' : adventureSavePending ? 'error' : 'saved'}">
+        ${adventureScenery('complete')}
         <header class="adventure-complete__hero">
+          ${svgIcon('bee', 'adventure-complete__bee')}
           <p class="eyebrow">${t('adventure.levelComplete', { level: adventureLevelNumber })}</p>
           <h2>${t(passed ? 'adventure.passTitle' : 'adventure.retryTitle')}</h2>
           <p class="lead">${t(passed ? 'adventure.passMessage' : 'adventure.retryMessage')}</p>
@@ -939,11 +985,11 @@ function initApp() {
           <p class="adventure-score">${t('adventure.score', { correct: result.correctCount, total: result.totalAttempted })}</p>
         </div>
         ${adventureSaving ? `<p class="status" role="status">${t('adventure.saving')}</p>` : ''}
-        ${adventureSavePending && !adventureSaving ? `<div class="sync-error" role="alert"><span>${t('adventure.saveError')}</span><button type="button" id="retry-adventure-save">${t('adventure.retrySave')}</button></div>` : ''}
+        ${saveFailed ? `<div class="sync-error adventure-save-error" role="alert"><span>${t('adventure.saveError')}</span><button type="button" id="retry-adventure-save" class="primary-action">${svgIcon('retry')}${t('adventure.retrySave')}</button></div>` : ''}
         <div class="action-row adventure-complete__actions">
-          <button type="button" id="retry-level">${t('adventure.retryLevel')}</button>
+          <button type="button" id="retry-level" class="${!saveFailed && primaryAction === 'retry' ? 'primary-action' : 'secondary-button'}">${svgIcon('retry')}${t('adventure.retryLevel')}</button>
           <button type="button" id="level-map" class="secondary-button">${t('adventure.levelMap')}</button>
-          ${canContinue ? `<button type="button" id="next-level">${t('adventure.nextLevel')}</button>` : ''}
+          ${canContinue ? `<button type="button" id="next-level" class="primary-action">${t('adventure.nextLevel')}${svgIcon('arrow')}</button>` : ''}
         </div>
       </section>`;
     const retrySave = document.getElementById('retry-adventure-save');
@@ -957,7 +1003,7 @@ function initApp() {
       practiceList = null;
       practiceMode = 'normal';
       view = 'adventure';
-      queueFocus(`[data-level="${adventureLevelNumber}"]`);
+      adventureMapPositionPending = true;
       render();
     });
     const next = document.getElementById('next-level');
@@ -985,10 +1031,11 @@ function initApp() {
     }
 
     if (feedback.isCorrect) {
-      return `<p class="practice-feedback__title">${t('practice.correctFeedback')}</p>`;
+      return `${practiceMode === 'adventure' ? `<div class="feedback-illustration feedback-illustration--correct" aria-hidden="true">${svgIcon('bee')}${svgIcon('check')}</div>` : ''}<p class="practice-feedback__title">${t('practice.correctFeedback')}</p>`;
     }
 
     return `
+      ${practiceMode === 'adventure' ? `<div class="feedback-illustration feedback-illustration--retry" aria-hidden="true">${svgIcon('bee')}${svgIcon('retry')}</div>` : ''}
       <p class="practice-feedback__title">${t('practice.tryAgain')}</p>
       <dl class="feedback__details">
         <div class="feedback__detail">
@@ -1023,7 +1070,7 @@ function initApp() {
     adventureSavePending = null;
     message = '';
     view = 'adventure';
-    queueFocus('[data-level="1"]');
+    adventureMapPositionPending = true;
     render();
   }
 

@@ -74,5 +74,15 @@
     return (Array.isArray(levels) ? levels : []).reduce((sum, level) => sum + Number(progressByLevel?.[level.number] || 0), 0);
   }
 
-  return { WORDS_PER_LEVEL, createLevels, createLevelSession, scoreStars, progressForList, isLevelUnlocked, mergeBestStars, totalStars };
+  function recommendedLevel(levels, progressByLevel) {
+    const source = Array.isArray(levels) ? levels : [];
+    const next = source.find((level) => isLevelUnlocked(level.number, progressByLevel) && Number(progressByLevel?.[level.number] || 0) === 0);
+    return next ? next.number : (source.length ? source[source.length - 1].number : null);
+  }
+
+  function journeyPosition(levelNumber) {
+    return ['left', 'center', 'right', 'center'][(Math.max(1, Number(levelNumber) || 1) - 1) % 4];
+  }
+
+  return { WORDS_PER_LEVEL, createLevels, createLevelSession, scoreStars, progressForList, isLevelUnlocked, mergeBestStars, totalStars, recommendedLevel, journeyPosition };
 });

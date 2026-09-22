@@ -1282,16 +1282,45 @@ body,
   color: var(--accent-strong);
 }
 
+.svg-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.ui-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  color: currentColor;
+}
+
 .adventure-map,
-.adventure-complete { gap: 22px; }
+.adventure-complete {
+  position: relative;
+  isolation: isolate;
+  gap: 22px;
+  overflow: hidden;
+}
+
+.adventure-map > *,
+.adventure-complete > *,
+.adventure-practice > * {
+  position: relative;
+  z-index: 1;
+}
+
 .adventure-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 18px;
 }
+
 .adventure-header > div,
 .adventure-complete__hero { display: grid; gap: 6px; }
+
 .adventure-total {
   padding: 10px 14px;
   border: 1px solid #dfc58f;
@@ -1300,40 +1329,184 @@ body,
   color: var(--accent-strong);
   font-weight: 800;
 }
-.level-grid {
+
+.adventure-scenery {
+  position: absolute !important;
+  z-index: 0 !important;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: #e9d8ac;
+}
+
+.scenery-icon { position: absolute; }
+.scenery-cloud { width: 88px; height: 50px; color: #edf4f7; }
+.scenery-cloud--one { top: 92px; left: 3%; }
+.scenery-cloud--two { top: 220px; right: 2%; transform: scale(.72); }
+.scenery-flower { width: 34px; height: 42px; color: #91b89c; bottom: 35px; }
+.scenery-flower--one { left: 3%; }
+.scenery-flower--two { right: 4%; transform: scale(.8); }
+.scenery-hill { width: 210px; height: 82px; right: -22px; bottom: -4px; color: #edf6ef; }
+
+.journey-path {
+  width: min(100%, 38rem);
+  margin: 0 auto;
+  padding: 22px 4px 8px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin: 0;
-  padding: 0;
   list-style: none;
 }
-.level-card { display: grid; align-content: start; gap: 7px; }
-.level-button {
-  width: 100%;
-  min-height: 138px;
+
+.journey-path__stop {
+  position: relative;
+  min-height: 166px;
   display: grid;
-  justify-items: start;
-  align-content: center;
-  gap: 9px;
-  padding: 18px;
-  text-align: left;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
 }
-.level-card--unlocked .level-button { border-color: #dfc58f; background: var(--accent-ghost); }
-.level-card--locked .level-button { border-style: dashed; background: var(--warm-soft); opacity: 1; }
-.level-card__number { font-size: 1.15rem; font-weight: 800; }
+
+.journey-trail {
+  position: absolute;
+  z-index: -1;
+  top: 38px;
+  left: 0;
+  width: 100%;
+  height: 166px;
+  overflow: visible;
+  pointer-events: none;
+}
+.journey-trail path {
+  fill: none;
+  stroke: #d7c69e;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 10 8;
+  vector-effect: non-scaling-stroke;
+}
+.journey-path__stop--left .level-card,
+.journey-path__stop--left > .level-button { grid-column: 1; }
+.journey-path__stop--center .level-card,
+.journey-path__stop--center > .level-button { grid-column: 2; }
+.journey-path__stop--right .level-card,
+.journey-path__stop--right > .level-button { grid-column: 3; }
+
+
+.level-card { min-width: 0; }
+.level-button {
+  position: relative;
+  width: clamp(92px, 28vw, 154px);
+  min-height: 142px;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 2px 4px 8px;
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+
+.level-button:hover:not(:disabled) { background: transparent; transform: translateY(-2px); }
+.level-button:focus-visible { outline: 0; }
+.level-button:focus-visible .level-node { outline: var(--focus-ring); outline-offset: 4px; }
+.level-node {
+  --icon-cutout: #fffdf9;
+  width: 76px;
+  height: 76px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 4px solid var(--surface-strong);
+  border-radius: 50%;
+  background: #d9dee1;
+  color: #596268;
+  box-shadow: 0 0 0 2px #bdc5c9, 0 6px 0 rgba(70, 74, 77, .12);
+}
+
+.level-node__number { font-size: 1.5rem; font-weight: 850; }
+.level-node__lock { width: 28px; height: 31px; }
+.level-card--completed .level-node { background: #82ad91; color: #fff; box-shadow: 0 0 0 2px #557e64, 0 6px 0 rgba(51, 94, 65, .15); }
+.level-card--recommended .level-node { background: var(--accent); color: #fff; box-shadow: 0 0 0 3px #f0d391, 0 7px 0 rgba(141, 90, 18, .2); }
+.level-card--available .level-node { background: #fff2cf; color: var(--accent-strong); box-shadow: 0 0 0 2px #d9b66d, 0 6px 0 rgba(141, 90, 18, .12); }
+.level-card--locked .level-node { background: #e8e9e9; color: #73777a; }
+.level-card--locked .level-button { opacity: 1; }
+.level-card__number { font-size: .94rem; font-weight: 800; line-height: 1.15; }
 .level-card__status,
 .level-card__hint,
-.star-result__text { color: var(--muted); font-size: 0.86rem; }
-.level-card__hint { margin: 0 4px; }
+.star-result__text { color: var(--muted); font-size: 0.78rem; line-height: 1.25; }
+.level-card__status { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.level-card__hint { grid-column: 1 / -1; max-width: 13rem; margin: 112px auto 0; text-align: center; }
+.level-bee {
+  position: absolute;
+  z-index: 2;
+  top: -25px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--accent-strong);
+  box-shadow: var(--shadow);
+  font-size: .72rem;
+  font-weight: 850;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.level-bee__icon { width: 27px; height: 27px; }
+
 .star-result {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 6px;
   color: var(--accent-strong);
   font-weight: 800;
 }
+.star-result__icons { display: inline-flex; gap: 2px; }
+.star-icon { width: 18px; height: 18px; }
+.star-icon--earned { color: #c88725; }
+.star-icon--empty { color: transparent; stroke: #a9aaad; }
+.journey-finish {
+  min-height: 82px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  color: var(--accent-strong);
+  font-size: .82rem;
+  font-weight: 800;
+}
+.journey-finish__flag { width: 36px; height: 44px; }
+
+.adventure-practice { position: relative; isolation: isolate; overflow: hidden; }
+.adventure-practice-scene {
+  min-height: 100px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border: 1px solid #e6dcc5;
+  border-radius: var(--radius-md);
+  background: var(--accent-ghost);
+  overflow: hidden;
+}
+.adventure-practice-scene__bee { width: 58px; height: 58px; color: var(--accent); }
+.adventure-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 0; padding: 0; list-style: none; }
+.adventure-step { min-width: 0; display: grid; justify-items: center; gap: 3px; color: var(--muted); font-size: .75rem; font-weight: 750; text-align: center; }
+.adventure-step .ui-icon { width: 26px; height: 26px; padding: 4px; border: 1px solid var(--line); border-radius: 50%; background: #fff; }
+.adventure-step--done,
+.adventure-step--current { color: var(--accent-strong); }
+.adventure-step--current .ui-icon { border-color: var(--accent); background: var(--accent-soft); }
+.adventure-practice-scene .adventure-scenery { opacity: .7; }
+.adventure-practice .practice-form label { display: flex; align-items: center; gap: 7px; }
+.feedback-illustration { float: left; display: inline-flex; align-items: center; margin-right: 10px; color: #568367; }
+.feedback-illustration--retry { color: #9f564e; }
+.feedback-illustration .ui-icon:first-child { width: 30px; height: 30px; color: var(--accent); }
+
 .adventure-results {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1347,12 +1520,21 @@ body,
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--accent-ghost);
+  text-align: center;
 }
 .adventure-score { grid-column: 1 / -1; place-items: center; font-weight: 800; }
+.adventure-complete__hero { justify-items: center; text-align: center; }
+.adventure-complete__hero .lead { margin-inline: auto; }
+.adventure-complete__bee { width: 72px; height: 72px; color: var(--accent); }
+.adventure-complete__actions { justify-content: center; }
 .adventure-complete__actions > button,
-#next-level { min-height: 44px; }
+#retry-adventure-save { min-height: 48px; }
+.primary-action,
 #next-level,
 #retry-adventure-save { background: var(--accent); border-color: var(--accent-strong); color: #fff; }
+.primary-action:hover:not(:disabled),
+#next-level:hover:not(:disabled),
+#retry-adventure-save:hover:not(:disabled) { background: var(--accent-strong); }
 
 @media (min-width: 760px) {
   .import-form {
@@ -1475,10 +1657,15 @@ body,
 @media (max-width: 740px) {
   .adventure-header { grid-template-columns: 1fr; align-items: start; }
   .adventure-total { justify-self: start; }
-  .level-grid,
   .adventure-results { grid-template-columns: 1fr; }
   .adventure-complete__actions,
   .adventure-complete__actions > button { width: 100%; }
+  .journey-path__stop { min-height: 158px; }
+  .level-bee { top: -23px; }
+  .scenery-cloud--two,
+  .scenery-flower--two { display: none; }
+  .adventure-practice-scene { grid-template-columns: 1fr; justify-items: center; }
+  .adventure-practice-scene__bee { width: 48px; height: 48px; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1507,11 +1694,44 @@ body,
   .star-reveal .star-result {
     animation: star-reveal 700ms ease-out both;
   }
+
+  .adventure-map,
+  .adventure-complete,
+  .adventure-practice {
+    animation: none;
+  }
+
+  .level-card--recommended .level-node {
+    animation: recommended-pulse 1.1s ease-in-out 1;
+  }
+
+  .level-card--recommended .level-bee {
+    animation: bee-arrival 520ms ease-out both;
+  }
+
+  .adventure-complete__bee {
+    animation: bee-arrival-complete 520ms ease-out both;
+  }
 }
 
 @keyframes star-reveal {
   from { opacity: 0; transform: scale(0.94); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes recommended-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes bee-arrival {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes bee-arrival-complete {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes rise {
@@ -1527,6 +1747,13 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .level-card--recommended .level-node,
+  .level-card--recommended .level-bee,
+  .adventure-complete__bee,
+  .star-reveal .star-result {
+    animation: none !important;
+  }
+
   *,
   *::before,
   *::after {

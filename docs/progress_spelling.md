@@ -4,9 +4,9 @@ Specification: spec_spelling.md
 
 Specification Version: 1.1
 
-Status: v2.2 Adventure Levels implemented and verified locally
+Status: v2.3 Illustrated Adventure Journey implemented and verified locally
 
-Current Phase: v2.2 Adventure Levels (TASK-220 through TASK-226 completed)
+Current Phase: v2.3 Illustrated Adventure Journey (TASK-230 through TASK-236 completed)
 
 ## 1. Product Documentation Status
 
@@ -349,6 +349,19 @@ The primary goal is to validate the core spelling practice experience before add
 The Developer should avoid premature architecture for future features such as accounts, cloud synchronization, AI, gamification, or advanced spaced repetition.
 
 ## 10. Change Log
+
+### Version 2.3 — Illustrated Adventure Journey (2026-09-21)
+
+- TASK-230: Added a reusable dependency-free inline SVG sprite and CSS scene primitives for bee, cloud, hill, flower/leaf, flag, lock, speaker, pencil, check, retry, arrow, and stars; decorations are assistive-technology and pointer inert.
+- TASK-231: Replaced the grid with an ascending, connected vertical journey using circular completed/recommended/available/locked nodes, earned stars, one bee/Start marker, lock symbols, and a finish flag.
+- TASK-232: Derived the recommended node from confirmed progress and centered it on map entry/return without moving focus; replay and ascending keyboard order remain intact.
+- TASK-233: Added an illustrated Adventure-only practice scene, Listen/Type/Check steps, accessible control icons, and illustrated feedback without adding a lifecycle step or changing Free Practice/Mistakes.
+- TASK-234: Centered completion art/stars, enforced exactly one primary action for saved/error states, and limited motion to bounded pulse/arrival/reveal animations with explicit reduced-motion suppression.
+- TASK-235: Added localized state labels and verified 76 px nodes, focus behavior, decorative isolation, and no horizontal overflow at 320×568, 390×844, and 1280×800.
+- TASK-236: Expanded pure and browser coverage for 1/3/10/30-level order, 30-node state/path rendering, positioning, keyboard order, English/Chinese, responsive widths, icon/decorative semantics, save hierarchy, and reduced motion.
+- Verified `npm test` and all four real-server UI E2E scripts pass on 2026-09-21. The expanded Adventure run observed 30 nodes, 29 connectors, 20 completed, 1 recommended, and 9 locked states in its long-path fixture.
+
+Verification limitation: live Neon/authenticated cross-device checks remain unverified because this environment has no Neon credentials. v2.3 did not change those v2.2 systems.
 
 ### Version 2.2 — Adventure Levels (2026-09-21)
 
