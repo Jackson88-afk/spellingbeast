@@ -12,7 +12,9 @@ agent-browser --session "$SESSION" wait 500
 agent-browser --session "$SESSION" eval "localStorage.setItem('spellingbeast:word-lists', JSON.stringify([{id:'animals',name:'Animals',words:['ant','bear'],createdAt:'2026-01-01T00:00:00.000Z',updatedAt:'2026-01-01T00:00:00.000Z'}])); location.reload(); 'seeded'" >/dev/null
 agent-browser --session "$SESSION" wait 500
 
-agent-browser --session "$SESSION" click 'button[data-list-id="animals"]'
+# Keep the shuffled session deterministic so the expected answers are stable.
+agent-browser --session "$SESSION" eval "Math.random=()=>0.999; 'random fixed'" >/dev/null
+agent-browser --session "$SESSION" click '.practice-list[data-list-id="animals"]'
 agent-browser --session "$SESSION" wait 200
 agent-browser --session "$SESSION" click 'button[data-size="All"]'
 agent-browser --session "$SESSION" wait 200
